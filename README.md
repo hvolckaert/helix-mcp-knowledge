@@ -38,12 +38,12 @@ dashboard when you are ready to select an authorised product and version.
 
 ## Release status
 
-Version 1.30.0 provides:
+Version 1.31.0 provides:
 
 - validated YAML configuration and Pydantic domain models;
 - project registration and active-project resolution;
-- SQLite as the source of truth, with FTS5 lexical search and bounded Spanish-to-English
-  Helix terminology expansion;
+- SQLite as the source of truth, with FTS5 lexical search, bounded Spanish-to-English
+  Helix terminology expansion, and targeted CMDB reconciliation-intent expansion;
 - structural parsers for PDF, DOCX, HTML, Markdown, and plain text;
 - heading-aware chunking with block types, limits, overlap, and provenance;
 - idempotent ingestion and atomic replacement of documents, chunks, and FTS5 data;
@@ -167,7 +167,7 @@ On first run it creates a per-user workspace containing a generic configuration,
 the supported official catalog, and the index directories.
 
 ```bash
-python -m pip install helix_mcp_knowledge-1.30.0-py3-none-any.whl
+python -m pip install helix_mcp_knowledge-1.31.0-py3-none-any.whl
 helix-mcp-knowledge install
 ```
 
@@ -227,22 +227,22 @@ acceptance, updates, and rollback:
 Windows:
 
 ```powershell
-.\scripts\install-windows.ps1 -Version 1.30.0
+.\scripts\install-windows.ps1 -Version 1.31.0
 ```
 
 WSL or Linux from a checkout:
 
 ```bash
-./scripts/install-linux.sh --version 1.30.0
+./scripts/install-linux.sh --version 1.31.0
 ```
 
 WSL or Linux directly from the GitHub release:
 
 ```bash
-gh release download v1.30.0 \
+gh release download v1.31.0 \
   --repo hvolckaert/helix-mcp-knowledge \
   --pattern install-linux.sh \
-  --output - | bash -s -- --version 1.30.0
+  --output - | bash -s -- --version 1.31.0
 ```
 
 Both installers create a working MCP server with no products selected. Their
@@ -258,7 +258,7 @@ products for an unattended installation. Repeat the option to retain multiple
 versions:
 
 ```bash
-./scripts/install-linux.sh --version 1.30.0 \
+./scripts/install-linux.sh --version 1.31.0 \
   --product cmdb=26.3 \
   --product discovery=current
 ```
