@@ -30,8 +30,8 @@ browser-sync = [
 dev = [
   "build>=1.2,<2",
   "pytest>=9.0.3,<10",
-  "pytest-cov>=6,<7",
-  "reportlab>=4.4,<5",
+  "pytest-cov>=6,<8",
+  "reportlab>=4.4,<6",
   "ruff>=0.12,<1",
 ]
 
