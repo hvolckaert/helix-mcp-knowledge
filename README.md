@@ -54,7 +54,7 @@ Version 1.29.0 provides:
 - checksum-locked, independently audited dependency sets for every optional component;
 - explicit degraded semantic status with automatic lexical fallback when the local
   vector service is unavailable;
-- section retrieval with adjacent context and result diversification;
+- section retrieval with adjacent context and document-first result diversification;
 - nine public MCP tools, including update and synchronization status;
 - explicit MCP safety annotations for read-only, session-mutating, and network-aware tools;
 - a local IntelliAgentia-branded administration dashboard;
