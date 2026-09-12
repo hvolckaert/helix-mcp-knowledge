@@ -27,6 +27,7 @@ REQUIRED_RESOURCES = {
 PUBLIC_SDIST_DOCS = {
     "docs/architecture/v1-specification.md",
     "docs/catalog-maintenance.md",
+    "docs/cmdb-reconciliation-demo.md",
     "docs/dashboard-ui-contract.md",
     "docs/mcp-client-integration.md",
     "docs/openclaw-windows-guide.md",

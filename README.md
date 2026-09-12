@@ -36,6 +36,11 @@ The repository and packaged configurations start with no product or private proj
 selected, so this sequence downloads no documentation. Use `configure` or the local
 dashboard when you are ready to select an authorised product and version.
 
+For a result-first walkthrough, run the
+[CMDB reconciliation evidence demo](docs/cmdb-reconciliation-demo.md). It provides an
+exact agent prompt, MCP calls, evidence matrix, acceptance checklist, and recording
+outline without redistributing BMC content.
+
 ## Release status
 
 Version 1.31.0 provides:
