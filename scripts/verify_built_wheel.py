@@ -32,6 +32,12 @@ PUBLIC_SDIST_DOCS = {
     "docs/openclaw-windows-guide.md",
     "docs/openclaw-wsl-guide.md",
 }
+PUBLIC_SDIST_EVALUATION = {
+    "evaluation/README.md",
+    "evaluation/synthetic-baseline.json",
+    "evaluation/synthetic-corpus/orion-operations.md",
+    "evaluation/synthetic-corpus/orion-upgrade.md",
+}
 FORBIDDEN_DEVELOPMENT_MARKERS = ("example_project",)
 
 
@@ -90,6 +96,17 @@ def main() -> int:
                 "source distribution documentation differs from the public allowlist: "
                 f"missing={sorted(PUBLIC_SDIST_DOCS - packaged_docs)}, "
                 f"unexpected={sorted(packaged_docs - PUBLIC_SDIST_DOCS)}"
+            )
+        packaged_evaluation = {
+            member.name.removeprefix(archive_prefix)
+            for member in members
+            if member.isfile() and member.name.startswith(f"{archive_prefix}evaluation/")
+        }
+        if packaged_evaluation != PUBLIC_SDIST_EVALUATION:
+            raise RuntimeError(
+                "source distribution evaluation material differs from the public allowlist: "
+                f"missing={sorted(PUBLIC_SDIST_EVALUATION - packaged_evaluation)}, "
+                f"unexpected={sorted(packaged_evaluation - PUBLIC_SDIST_EVALUATION)}"
             )
         readme_member = next(
             (member for member in archive.getmembers() if member.name.endswith("/README.md")),

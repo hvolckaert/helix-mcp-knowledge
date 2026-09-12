@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "name": "Synthetic retrieval baseline",
+  "description": "Fictional, copyright-safe evidence for validating the evaluation workflow.",
+  "cases": [
+    {
+      "case_id": "exact-en-001",
+      "name": "Exact recovery lock",
+      "category": "exact",
+      "difficulty": "easy",
+      "language": "en",
+      "query": "quartz-lock",
+      "source_scope": "bmc_official",
+      "expected_terms": ["quartz-lock"]
+    },
+    {
+      "case_id": "concept-en-001",
+      "name": "Prevent duplicate imported nodes",
+      "category": "concept",
+      "difficulty": "medium",
+      "language": "en",
+      "query": "How are duplicate imported nodes prevented?",
+      "source_scope": "bmc_official",
+      "expected_terms": ["canonical identity", "amber quarantine queue"]
+    },
+    {
+      "case_id": "procedure-en-001",
+      "name": "Respond to repeated drift",
+      "category": "procedure",
+      "difficulty": "medium",
+      "language": "en",
+      "query": "What should operators do after repeated drift mismatches?",
+      "source_scope": "bmc_official",
+      "expected_terms": ["pause imports", "rebuild the mapping cache"]
+    },
+    {
+      "case_id": "procedure-en-002",
+      "name": "Pre-upgrade evidence",
+      "category": "procedure",
+      "difficulty": "easy",
+      "language": "en",
+      "query": "What must be exported and verified before an upgrade?",
+      "source_scope": "bmc_official",
+      "expected_terms": ["horizon manifest", "violet signature"]
+    },
+    {
+      "case_id": "version-en-001",
+      "name": "Release-specific bridge behavior",
+      "category": "version",
+      "difficulty": "hard",
+      "language": "en",
+      "query": "When does release 7.4 use bridge mode?",
+      "source_scope": "bmc_official",
+      "expected_terms": ["release 7.4", "cobalt envelope"]
+    },
+    {
+      "case_id": "compatibility-en-001",
+      "name": "Direct mode prerequisite",
+      "category": "compatibility",
+      "difficulty": "medium",
+      "language": "en",
+      "query": "What is required before direct mode is supported?",
+      "source_scope": "bmc_official",
+      "expected_terms": ["every collector", "7.4 wire format"]
+    },
+    {
+      "case_id": "exact-en-002",
+      "name": "Recovery window start",
+      "category": "exact",
+      "difficulty": "easy",
+      "language": "en",
+      "query": "At what time does the safe recovery window begin?",
+      "source_scope": "bmc_official",
+      "expected_terms": ["02:15 utc", "twenty minutes"]
+    },
+    {
+      "case_id": "multilingual-es-001",
+      "name": "Aprobación de corrección masiva",
+      "category": "multilingual",
+      "difficulty": "medium",
+      "language": "es",
+      "query": "¿Cuántos revisores deben aprobar una corrección masiva?",
+      "source_scope": "bmc_official",
+      "expected_terms": ["dos revisores ficticios", "motivo declarado"]
+    },
+    {
+      "case_id": "concept-en-002",
+      "name": "Optional vector cost decision",
+      "category": "concept",
+      "difficulty": "hard",
+      "language": "en",
+      "query": "When should the optional vector stage be enabled?",
+      "source_scope": "bmc_official",
+      "expected_terms": ["180 units", "measured retrieval improvement"]
+    },
+    {
+      "case_id": "procedure-en-003",
+      "name": "Post-upgrade validation",
+      "category": "procedure",
+      "difficulty": "medium",
+      "language": "en",
+      "query": "Which test runs before normal traffic returns?",
+      "source_scope": "bmc_official",
+      "expected_terms": ["northbound echo test", "normal traffic"]
+    }
+  ]
+}

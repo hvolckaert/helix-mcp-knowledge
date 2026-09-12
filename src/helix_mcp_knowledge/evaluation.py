@@ -7,6 +7,7 @@ import math
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 
 from .errors import ConfigurationError
@@ -14,28 +15,83 @@ from .models.search import SearchRequest, SearchResponse, SearchResult
 from .retrieval.search_engine import SearchEngine
 
 _EVALUATION_MODES = ("lexical", "baseline", "reranked")
+_EVALUATION_SCHEMA_VERSION = 1
+_DIFFICULTIES = {"easy", "medium", "hard"}
+_CASE_METADATA_FIELDS = {
+    "case_id",
+    "name",
+    "category",
+    "difficulty",
+    "language",
+    "expected_document_ids",
+    "expected_terms",
+}
 
 
 @dataclass(frozen=True)
 class EvaluationCase:
+    case_id: str
     name: str
     request: SearchRequest
     expected_document_ids: set[str]
     expected_terms: list[str]
+    category: str = "uncategorized"
+    difficulty: str = "unspecified"
+    language: str = "und"
 
 
-def load_evaluation_cases(path: str | Path, *, top_k: int) -> list[EvaluationCase]:
+@dataclass(frozen=True)
+class EvaluationDataset:
+    """Frozen evaluation cases plus provenance for reproducible reports."""
+
+    name: str
+    description: str
+    schema_version: int
+    sha256: str
+    source: Path
+    cases: list[EvaluationCase]
+
+
+def load_evaluation_dataset(path: str | Path, *, top_k: int) -> EvaluationDataset:
     source = Path(path).expanduser().resolve()
     try:
-        payload = json.loads(source.read_text(encoding="utf-8"))
+        raw = source.read_bytes()
     except OSError as exc:
         raise ConfigurationError(f"could not read evaluation dataset {source}: {exc}") from exc
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        raise ConfigurationError(f"evaluation dataset is not UTF-8: {source}: {exc}") from exc
     except json.JSONDecodeError as exc:
         raise ConfigurationError(f"evaluation dataset is not valid JSON: {source}: {exc}") from exc
-    if not isinstance(payload, list) or not payload:
-        raise ConfigurationError("evaluation dataset must be a non-empty JSON list")
+
+    if isinstance(payload, list):
+        schema_version = _EVALUATION_SCHEMA_VERSION
+        name = source.stem
+        description = "Legacy list-format evaluation dataset"
+        case_payload = payload
+    elif isinstance(payload, dict):
+        schema_version = payload.get("schema_version")
+        if schema_version != _EVALUATION_SCHEMA_VERSION:
+            raise ConfigurationError(
+                "evaluation dataset schema_version must be "
+                f"{_EVALUATION_SCHEMA_VERSION}, got {schema_version!r}"
+            )
+        name = _required_text(payload.get("name"), "evaluation dataset name")
+        description_value = payload.get("description", "")
+        if not isinstance(description_value, str):
+            raise ConfigurationError("evaluation dataset description must be a string")
+        description = description_value.strip()
+        case_payload = payload.get("cases")
+    else:
+        raise ConfigurationError("evaluation dataset must be a JSON object or list")
+
+    if not isinstance(case_payload, list) or not case_payload:
+        raise ConfigurationError("evaluation dataset cases must be a non-empty list")
+
     cases = []
-    for index, item in enumerate(payload, start=1):
+    seen_case_ids: set[str] = set()
+    for index, item in enumerate(case_payload, start=1):
         if not isinstance(item, dict):
             raise ConfigurationError(f"evaluation case {index} must be an object")
         expected_ids = item.get("expected_document_ids", [])
@@ -44,6 +100,11 @@ def load_evaluation_cases(path: str | Path, *, top_k: int) -> list[EvaluationCas
             isinstance(value, str) for value in expected_ids
         ):
             raise ConfigurationError(f"evaluation case {index} has invalid expected_document_ids")
+        normalized_ids = {value.strip() for value in expected_ids}
+        if "" in normalized_ids:
+            raise ConfigurationError(
+                f"evaluation case {index} has an empty expected_document_ids value"
+            )
         if not isinstance(expected_terms, list) or not all(
             isinstance(value, str) for value in expected_terms
         ):
@@ -59,33 +120,63 @@ def load_evaluation_cases(path: str | Path, *, top_k: int) -> list[EvaluationCas
             if term not in seen_terms:
                 seen_terms.add(term)
                 normalized_terms.append(term)
-        if not expected_ids and not normalized_terms:
+        if not normalized_ids and not normalized_terms:
             raise ConfigurationError(f"evaluation case {index} requires expected evidence")
-        if expected_ids and normalized_terms:
+        if normalized_ids and normalized_terms:
             raise ConfigurationError(
                 f"evaluation case {index} must use expected_document_ids "
                 "or expected_terms, not both"
             )
+        case_id = _required_text(item.get("case_id", f"case-{index}"), f"case {index} case_id")
+        if case_id in seen_case_ids:
+            raise ConfigurationError(f"evaluation case_id must be unique: {case_id}")
+        seen_case_ids.add(case_id)
+        name_value = item.get("name", case_id)
+        name_value = _required_text(name_value, f"evaluation case {index} name")
+        category = _optional_label(item.get("category"), default="uncategorized", field="category")
+        difficulty = _optional_label(
+            item.get("difficulty"), default="unspecified", field="difficulty"
+        )
+        if difficulty != "unspecified" and difficulty not in _DIFFICULTIES:
+            raise ConfigurationError(
+                f"evaluation case {index} difficulty must be easy, medium, or hard"
+            )
+        language = _optional_label(item.get("language"), default="und", field="language")
         request_payload = {
-            key: value
-            for key, value in item.items()
-            if key not in {"name", "expected_document_ids", "expected_terms"}
+            key: value for key, value in item.items() if key not in _CASE_METADATA_FIELDS
         }
         request_payload["top_k"] = top_k
         cases.append(
             EvaluationCase(
-                name=str(item.get("name") or f"case-{index}"),
+                case_id=case_id,
+                name=name_value,
                 request=SearchRequest.model_validate(request_payload),
-                expected_document_ids=set(expected_ids),
+                expected_document_ids=normalized_ids,
                 expected_terms=normalized_terms,
+                category=category,
+                difficulty=difficulty,
+                language=language,
             )
         )
-    return cases
+    return EvaluationDataset(
+        name=name,
+        description=description,
+        schema_version=schema_version,
+        sha256=sha256(raw).hexdigest(),
+        source=source,
+        cases=cases,
+    )
+
+
+def load_evaluation_cases(path: str | Path, *, top_k: int) -> list[EvaluationCase]:
+    """Load cases while preserving the original public API."""
+
+    return load_evaluation_dataset(path, top_k=top_k).cases
 
 
 def evaluate_retrieval(
     engine: SearchEngine,
-    cases: list[EvaluationCase],
+    cases: list[EvaluationCase] | EvaluationDataset,
     *,
     timer: Callable[[], float] | None = None,
 ) -> dict[str, object]:
@@ -96,6 +187,9 @@ def evaluate_retrieval(
     enabled, which permits lightweight reranker evaluation without a vector backend.
     """
 
+    dataset = cases if isinstance(cases, EvaluationDataset) else None
+    if dataset is not None:
+        cases = dataset.cases
     semantic_enabled = bool(engine.config.retrieval.semantic.enabled)
     reranker_settings = getattr(engine.config.retrieval, "reranker", None)
     reranker_backend_present = getattr(engine, "reranker", None) is not None
@@ -159,8 +253,12 @@ def evaluate_retrieval(
         baseline_rank = _expected_rank(baseline, case)
         results.append(
             {
+                "case_id": case.case_id,
                 "name": case.name,
                 "query": case.request.query,
+                "category": case.category,
+                "difficulty": case.difficulty,
+                "language": case.language,
                 "lexical_rank": lexical_rank,
                 # ``hybrid`` remains the configured non-reranked baseline for compatibility.
                 "hybrid_rank": baseline_rank,
@@ -178,6 +276,8 @@ def evaluate_retrieval(
                 "reranker_applied": reranked_result_count > 0,
                 "reranked_result_count": reranked_result_count,
                 "returned_result_count": returned_result_count,
+                "lexical_recall_at_k": _recall_at_k(lexical, case),
+                "lexical_ndcg_at_k": _ndcg_at_k(lexical, case),
                 "baseline_recall_at_k": _recall_at_k(baseline, case),
                 "reranked_recall_at_k": reranked_recall_at_k,
                 "baseline_ndcg_at_k": _ndcg_at_k(baseline, case),
@@ -220,10 +320,16 @@ def evaluate_retrieval(
             "The reranker backend was configured but did not score any non-empty case; "
             "wait until its service is ready and repeat the evaluation."
         )
-    return {
+    quality = {
+        "lexical": _quality_metrics(results, "lexical"),
+        "baseline": _quality_metrics(results, "baseline"),
+        "reranked": (_quality_metrics(results, "reranked") if reranker_comparison_valid else None),
+    }
+    report: dict[str, object] = {
         "cases": results,
         "summary": {
             "total": len(results),
+            "top_k": cases[0].request.top_k if cases else None,
             "lexical_hits": sum(rank is not None for rank in lexical_ranks),
             "hybrid_hits": sum(rank is not None for rank in baseline_ranks),
             "improved": sum(bool(item["improved"]) for item in results),
@@ -293,8 +399,147 @@ def evaluate_retrieval(
                 "order_strategy": "rotating",
                 "modes": list(measured_modes),
             },
+            "quality": quality,
+            "slices": {
+                field: _slice_metrics(
+                    results,
+                    field,
+                    reranker_comparison_valid=reranker_comparison_valid,
+                )
+                for field in ("category", "difficulty", "language")
+            },
         },
     }
+    if dataset is not None:
+        report["dataset"] = {
+            "name": dataset.name,
+            "description": dataset.description,
+            "schema_version": dataset.schema_version,
+            "sha256": dataset.sha256,
+            "source": dataset.source.name,
+        }
+    return report
+
+
+def render_evaluation_markdown(report: dict[str, object]) -> str:
+    """Render a compact, shareable report without retrieved source content."""
+
+    summary = report["summary"]
+    assert isinstance(summary, dict)
+    dataset = report.get("dataset")
+    dataset_name = "ad hoc evaluation"
+    lines: list[str] = []
+    if isinstance(dataset, dict):
+        dataset_name = str(dataset["name"])
+    lines.extend([f"# Retrieval evaluation: {_markdown_cell(dataset_name)}", ""])
+    if isinstance(dataset, dict):
+        description = str(dataset.get("description") or "")
+        if description:
+            lines.extend([description, ""])
+        lines.extend(
+            [
+                f"- Dataset SHA-256: `{dataset['sha256']}`",
+                f"- Schema version: `{dataset['schema_version']}`",
+                f"- Source file: `{dataset['source']}`",
+            ]
+        )
+    lines.extend(
+        [
+            f"- Cases: `{summary['total']}`",
+            f"- Top-k: `{summary['top_k']}`",
+            "",
+            "## Aggregate quality",
+            "",
+            "| Mode | Hits | Hit rate@k | MRR | Recall@k | nDCG@k | p50 ms | p95 ms |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    quality = summary["quality"]
+    latency = summary["latency_ms"]
+    assert isinstance(quality, dict)
+    assert isinstance(latency, dict)
+    for mode in _EVALUATION_MODES:
+        metrics = quality.get(mode)
+        timing = latency[mode]
+        assert isinstance(timing, dict)
+        if not isinstance(metrics, dict):
+            cells = [mode, "n/a", "n/a", "n/a", "n/a", "n/a"]
+        else:
+            cells = [
+                mode,
+                str(metrics["hits"]),
+                _format_metric(metrics["hit_rate_at_k"]),
+                _format_metric(metrics["mrr"]),
+                _format_metric(metrics["recall_at_k"]),
+                _format_metric(metrics["ndcg_at_k"]),
+            ]
+        cells.extend([_format_metric(timing["p50"]), _format_metric(timing["p95"])])
+        lines.append("| " + " | ".join(cells) + " |")
+
+    lines.extend(
+        [
+            "",
+            "## Cases",
+            "",
+            "| Case | Category | Difficulty | Language | Lexical rank | "
+            "Baseline rank | Reranked rank |",
+            "|---|---|---|---|---:|---:|---:|",
+        ]
+    )
+    cases = report["cases"]
+    assert isinstance(cases, list)
+    for case in cases:
+        assert isinstance(case, dict)
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    _markdown_cell(str(case["case_id"])),
+                    _markdown_cell(str(case["category"])),
+                    _markdown_cell(str(case["difficulty"])),
+                    _markdown_cell(str(case["language"])),
+                    _format_rank(case["lexical_rank"]),
+                    _format_rank(case["baseline_rank"]),
+                    _format_rank(case["reranked_rank"]),
+                ]
+            )
+            + " |"
+        )
+
+    reranker = summary["reranker"]
+    assert isinstance(reranker, dict)
+    runtime = report.get("runtime")
+    if isinstance(runtime, dict):
+        index = runtime.get("index")
+        retrieval = runtime.get("retrieval")
+        lines.extend(["", "## Runtime", ""])
+        lines.append(f"- Helix MCP Knowledge: `{runtime['helix_mcp_knowledge_version']}`")
+        if isinstance(index, dict):
+            counts = index.get("counts")
+            lines.append(f"- SQLite schema: `{index['schema_version']}`")
+            lines.append(f"- SQLite bytes: `{index.get('sqlite_bytes', 'n/a')}`")
+            if isinstance(counts, dict):
+                lines.append(
+                    f"- Indexed documents/chunks: `{counts.get('documents', 'n/a')}` / "
+                    f"`{counts.get('chunks', 'n/a')}`"
+                )
+        if isinstance(retrieval, dict):
+            lines.append(
+                "- Retrieval enabled (lexical/semantic/reranker): "
+                f"`{retrieval.get('lexical_enabled')}` / "
+                f"`{retrieval.get('semantic_enabled')}` / "
+                f"`{retrieval.get('reranker_enabled')}`"
+            )
+    lines.extend(["", "## Measurement notes", ""])
+    lines.append(f"- Reranker status: `{reranker['status']}`")
+    guidance = reranker.get("guidance")
+    if guidance:
+        lines.append(f"- Reranker guidance: {_markdown_cell(str(guidance))}")
+    lines.append(
+        "- Every mode is warmed once and timed in rotating order; retrieved text is not "
+        "included in this report."
+    )
+    return "\n".join(lines) + "\n"
 
 
 def _timed_mode_search(
@@ -451,3 +696,69 @@ def _percentile(values: list[float], percentile: float) -> float:
 def _mrr(ranks: list[object]) -> float:
     values = [1.0 / rank if isinstance(rank, int) and rank > 0 else 0.0 for rank in ranks]
     return round(sum(values) / len(values), 4) if values else 0.0
+
+
+def _quality_metrics(results: list[dict[str, object]], mode: str) -> dict[str, object]:
+    rank_key = f"{mode}_rank"
+    ranks = [item[rank_key] for item in results]
+    return {
+        "hits": sum(rank is not None for rank in ranks),
+        "hit_rate_at_k": round(sum(rank is not None for rank in ranks) / len(results), 4)
+        if results
+        else 0.0,
+        "mrr": _mrr(ranks),
+        "recall_at_k": _mean_metric(results, f"{mode}_recall_at_k"),
+        "ndcg_at_k": _mean_metric(results, f"{mode}_ndcg_at_k"),
+    }
+
+
+def _slice_metrics(
+    results: list[dict[str, object]],
+    field: str,
+    *,
+    reranker_comparison_valid: bool,
+) -> dict[str, object]:
+    slices: dict[str, object] = {}
+    for value in sorted({str(item[field]) for item in results}):
+        selected = [item for item in results if str(item[field]) == value]
+        slices[value] = {
+            "total": len(selected),
+            "quality": {
+                "lexical": _quality_metrics(selected, "lexical"),
+                "baseline": _quality_metrics(selected, "baseline"),
+                "reranked": (
+                    _quality_metrics(selected, "reranked") if reranker_comparison_valid else None
+                ),
+            },
+        }
+    return slices
+
+
+def _required_text(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigurationError(f"{field} must be a non-empty string")
+    return value.strip()
+
+
+def _optional_label(value: object, *, default: str, field: str) -> str:
+    if value is None:
+        return default
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigurationError(f"evaluation case {field} must be a non-empty string")
+    return value.strip().casefold()
+
+
+def _format_metric(value: object) -> str:
+    if value is None:
+        return "n/a"
+    if isinstance(value, float):
+        return f"{value:.4f}".rstrip("0").rstrip(".")
+    return str(value)
+
+
+def _format_rank(value: object) -> str:
+    return str(value) if isinstance(value, int) else "—"
+
+
+def _markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ")

@@ -1,0 +1,97 @@
+# Retrieval evaluation
+
+This directory provides a copyright-safe starting point for a frozen retrieval
+benchmark. The included corpus and questions are fictional; they do not reproduce
+BMC documentation, customer material, or private project decisions.
+
+## Run the synthetic baseline
+
+Use a disposable workspace so the sample cannot affect a real index:
+
+```bash
+helix-mcp-knowledge init --workspace /tmp/helix-knowledge-evaluation
+mkdir -p /tmp/helix-knowledge-evaluation/data/sources/bmc/official/synthetic
+cp evaluation/synthetic-corpus/*.md \
+  /tmp/helix-knowledge-evaluation/data/sources/bmc/official/synthetic/
+helix-mcp-knowledge \
+  --config /tmp/helix-knowledge-evaluation/config/config.yaml \
+  ingest /tmp/helix-knowledge-evaluation/data/sources/bmc/official/synthetic \
+  --scope bmc_official --document-type other --recursive
+helix-mcp-knowledge \
+  --config /tmp/helix-knowledge-evaluation/config/config.yaml \
+  evaluate-retrieval evaluation/synthetic-baseline.json \
+  --top-k 5 --format markdown --output evaluation/synthetic-report.md
+```
+
+The evaluator writes a SHA-256 fingerprint of the exact dataset, records index counts
+and active retrieval modes, warms each mode before measurement, and rotates timed mode
+order between cases. The Markdown report deliberately excludes retrieved text and local
+paths so it can be reviewed before sharing.
+
+## Build the private BMC baseline
+
+Create a separate dataset that is not committed until its provenance and publication
+rights have been reviewed. Freeze the questions and relevance judgments before looking
+at comparative rankings.
+
+Target 30 questions for the first baseline:
+
+| Category | Cases | Purpose |
+|---|---:|---|
+| concept | 6 | Vocabulary differs between the question and evidence. |
+| exact | 5 | Product identifiers, configuration keys, or error tokens. |
+| procedure | 6 | Ordered operational or administration steps. |
+| compatibility | 4 | Supported combinations and prerequisites. |
+| version | 4 | Evidence that changes between product versions. |
+| project-decision | 3 | Authorized local decisions and runbooks. |
+| multilingual | 2 | Equivalent intent expressed in another language. |
+
+Balance the set across the priority product families and assign `easy`, `medium`, or
+`hard` before execution. Every case must have a stable `case_id` and exactly one form of
+relevance judgment:
+
+- `expected_document_ids` when stable document identifiers are available; or
+- `expected_terms` when all listed terms identify one acceptable evidence result.
+
+Document identifiers give the stronger evaluation because they measure recall when
+more than one source is relevant. Expected terms are useful during initial authoring,
+but they should be replaced with identifiers after the corpus is frozen.
+
+## Dataset contract
+
+```json
+{
+  "schema_version": 1,
+  "name": "Private BMC retrieval baseline 1",
+  "description": "Provenance reviewed separately; no source text embedded.",
+  "cases": [
+    {
+      "case_id": "cmdb-concept-en-001",
+      "name": "Human-readable description",
+      "category": "concept",
+      "difficulty": "medium",
+      "language": "en",
+      "query": "Question supplied to search",
+      "product": "cmdb",
+      "version": "26.1",
+      "source_scope": "bmc_official",
+      "expected_document_ids": ["doc_reviewed_identifier"]
+    }
+  ]
+}
+```
+
+Search request fields (`project_id`, `source_scope`, `product`, `version`, and
+`document_types`) are optional. Unknown fields, unsupported schema versions, duplicate
+case IDs, empty evidence, and invalid difficulty labels are rejected.
+
+## Interpretation
+
+The aggregate report exposes Hit Rate@k, MRR, Recall@k, nDCG@k, and p50/p95 latency for
+lexical, configured baseline, and reranked retrieval. It also groups quality by category,
+difficulty, and language in JSON. A reranked comparison is published only when the
+backend scored every non-empty result set.
+
+Do not tune on this baseline indefinitely. Record difficult cases, make a change only
+for a stated hypothesis, then confirm it on a separate holdout set or with external
+tester evidence.
