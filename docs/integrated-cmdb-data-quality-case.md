@@ -238,3 +238,7 @@ change. Knowledge prevents the agent from reasoning only from memory; Gateway pr
 it from treating documentation as proof of live state. The approval boundary then makes
 even a high-impact read reviewable before execution. Remediation can be evaluated in a
 later case only after these evidence and control disciplines are shown to hold.
+
+The next step in the sequence is the
+[integrated controlled-update case](integrated-controlled-update-case.md), which adds one
+human-approved synthetic DEV write without widening the authority boundary.
