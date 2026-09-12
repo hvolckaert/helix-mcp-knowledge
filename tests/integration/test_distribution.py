@@ -1,8 +1,24 @@
+import tomllib
 from pathlib import Path
 
 from helix_mcp_knowledge.config import load_config
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_publication_metadata_uses_mit_for_original_project_material() -> None:
+    with (REPOSITORY_ROOT / "pyproject.toml").open("rb") as stream:
+        project_file = tomllib.load(stream)
+
+    project = project_file["project"]
+    assert project["license"] == "MIT"
+    assert project["license-files"] == ["LICENSE"]
+    assert project["authors"] == [{"name": "Hugo Volckaert"}]
+    assert "/LICENSE" in project_file["tool"]["hatch"]["build"]["targets"]["sdist"]["include"]
+
+    license_text = (REPOSITORY_ROOT / "LICENSE").read_text(encoding="utf-8")
+    assert license_text.startswith("MIT License\n")
+    assert "Copyright (c) 2026 Hugo Volckaert" in license_text
 
 
 def test_distributed_configuration_is_product_and_project_free() -> None:

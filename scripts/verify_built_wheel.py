@@ -110,10 +110,37 @@ def main() -> int:
                 "source distribution root configuration differs from the generic packaged default"
             )
 
+        license_member = next(
+            (member for member in archive.getmembers() if member.name.endswith("/LICENSE")),
+            None,
+        )
+        if license_member is None:
+            raise RuntimeError("source distribution does not contain LICENSE")
+        packaged_license = archive.extractfile(license_member)
+        if packaged_license is None:
+            raise RuntimeError("could not inspect source distribution LICENSE")
+        if packaged_license.read() != (REPOSITORY_ROOT / "LICENSE").read_bytes():
+            raise RuntimeError("source distribution LICENSE differs from repository LICENSE")
+
     with ZipFile(wheel) as archive:
-        missing = REQUIRED_RESOURCES.difference(archive.namelist())
+        member_names = archive.namelist()
+        missing = REQUIRED_RESOURCES.difference(member_names)
+        license_members = [
+            name for name in member_names if name.endswith(".dist-info/licenses/LICENSE")
+        ]
+        metadata_members = [name for name in member_names if name.endswith(".dist-info/METADATA")]
     if missing:
         raise RuntimeError(f"missing wheel resources: {sorted(missing)}")
+    if len(license_members) != 1:
+        raise RuntimeError(f"expected one wheel LICENSE, found: {license_members}")
+    if len(metadata_members) != 1:
+        raise RuntimeError(f"expected one wheel METADATA, found: {metadata_members}")
+    with ZipFile(wheel) as archive:
+        if archive.read(license_members[0]) != (REPOSITORY_ROOT / "LICENSE").read_bytes():
+            raise RuntimeError("wheel LICENSE differs from repository LICENSE")
+        metadata = archive.read(metadata_members[0]).decode("utf-8")
+    if "License-Expression: MIT\n" not in metadata or "License-File: LICENSE\n" not in metadata:
+        raise RuntimeError("wheel metadata does not declare the repository MIT license")
 
     with tempfile.TemporaryDirectory(prefix="helix-wheel-acceptance-") as temporary:
         root = Path(temporary)

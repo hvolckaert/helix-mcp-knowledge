@@ -14,6 +14,22 @@ them would break provenance or references to externally managed files. Describe
 those sources in English and label the retained text as an original title when
 it appears in public documentation.
 
+## Repository rules
+
+- Do not include credentials, private endpoints, organization or customer names,
+  private document titles, paths, content, indexed chunks, or database copies.
+- Do not commit downloaded BMC pages, proprietary software, third-party
+  documentation, screenshots, caches, indexes, or generated corpora.
+- Use fictional, publication-safe documents and identifiers in examples and tests.
+- Preserve explicit project selection, cross-project isolation, source provenance,
+  and the distinction between documentary evidence and live Gateway observations.
+- Keep network discovery bounded and read-only; catalog automation may propose a
+  change but must not approve or publish its own proposal.
+- Document any user-visible behavior or configuration migration.
+
+Report vulnerabilities through the private process in
+[SECURITY.md](SECURITY.md), never through a public issue.
+
 Use clear international English and avoid locale-specific assumptions. The
 dashboard uses `en-GB` for human-readable dates and numbers while protocol
 values, timestamps, identifiers, and paths remain locale-independent.
@@ -32,6 +48,10 @@ uv run python scripts/verify_built_wheel.py
 
 Pull-request titles, descriptions, commits, and release notes must also be in
 English.
+
+By submitting a contribution, you agree that it may be distributed under the
+repository's MIT License. Do not submit material unless you have the right to
+license it on those terms.
 
 ## Catalog contributions
 

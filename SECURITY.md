@@ -2,16 +2,36 @@
 
 ## Supported versions
 
-Security fixes are provided for the latest published Helix MCP Knowledge
-release. Managed installations can check their status from the dashboard or by
-calling `get_update_status`.
+| Version | Security support |
+| --- | --- |
+| 1.28.x | Yes |
+| 1.27.x and earlier | No |
 
-## Reporting a vulnerability
+Security fixes target the latest supported release line. Managed installations
+can check their status from the dashboard or by calling `get_update_status`.
 
-Report suspected vulnerabilities privately to the repository owner. Include a
-minimal reproduction, the affected version and the expected impact. Do not put
-credentials, private project documents, database copies or access tokens in an
-issue, log excerpt or test fixture.
+## Responsible disclosure
+
+Do not publish vulnerabilities, credentials, private endpoints, project
+documents, indexed chunks, database copies, or exploitation details in a public
+issue.
+
+Use **Report a vulnerability** in the repository's Security tab. If private
+reporting is unavailable, open an issue without sensitive details and ask the
+maintainer for a private channel.
+
+When possible, include:
+
+- affected version and commit;
+- affected component and a local reproduction environment;
+- expected impact;
+- minimal steps using fictional data;
+- any known mitigation.
+
+Do not test a vulnerability against BMC infrastructure, a third-party service,
+or a private documentation source without explicit authorization.
+
+## Credential and local-data handling
 
 The project does not request BMC credentials through the dashboard. When an
 authenticated documentation source is explicitly configured, credentials must
@@ -33,3 +53,11 @@ normalized inputs so the package-index skip cannot hide an advisory. On POSIX sy
 operational metadata, and project-document roots are restricted to the owning
 user; explicitly configured external project folders keep the permissions chosen
 by their owner.
+
+## Scope
+
+This policy covers the original server code, configuration templates, installer,
+dashboard, release workflows, and repository-authored documentation. BMC
+products and documentation, third-party services, optional models, and
+user-supplied project documents retain their own support channels, licences, and
+security policies.

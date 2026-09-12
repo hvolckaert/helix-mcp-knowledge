@@ -8,8 +8,9 @@ version = "1.28.1"
 description = "MCP server for BMC Helix official and project knowledge"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "Proprietary" }
-authors = [{ name = "Helix MCP Knowledge Team" }]
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Hugo Volckaert" }]
 dependencies = [
   "beautifulsoup4>=4.13,<5",
   "httpx>=0.28,<1",
@@ -59,6 +60,7 @@ include = [
   "/scripts/install-windows.ps1",
   "/runtime-requirements.txt",
   "/README.md",
+  "/LICENSE",
   "/CONTRIBUTING.md",
   "/SECURITY.md",
   "/pyproject.toml",

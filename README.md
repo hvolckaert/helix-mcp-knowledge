@@ -1,5 +1,9 @@
 # helix-mcp-knowledge
 
+[![CI](https://github.com/hvolckaert/helix-mcp-knowledge/actions/workflows/ci.yml/badge.svg)](https://github.com/hvolckaert/helix-mcp-knowledge/actions/workflows/ci.yml)
+[![Release](https://github.com/hvolckaert/helix-mcp-knowledge/actions/workflows/release.yml/badge.svg)](https://github.com/hvolckaert/helix-mcp-knowledge/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 An MCP server for evidence-based retrieval across the BMC Helix documentation
 ecosystem. It keeps documentary knowledge (`helix-mcp-knowledge`) separate from
 live environment data (`helix-mcp-gateway`).
@@ -877,3 +881,31 @@ with official documentation.
 SQLite stores projects, products, versions, documents, chunks, sources, and
 synchronization state. `chunks_fts` is the lexical index. Qdrant stores only
 vectors and filter metadata; canonical text always comes from SQLite.
+
+## Contact and support
+
+- Use [GitHub Issues](https://github.com/hvolckaert/helix-mcp-knowledge/issues)
+  for sanitized bug reports, feature proposals, and support requests.
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a significant change.
+- Report security issues through the private process in [SECURITY.md](SECURITY.md).
+
+Never include credentials, private endpoints, organization or customer names,
+private document titles, paths or content, database copies, indexed chunks, or
+raw diagnostics in a public issue.
+
+## License, third-party content, and trademarks
+
+Original project code and repository-authored documentation are available under
+the [MIT License](LICENSE).
+
+The MIT License does not apply to third-party material retrieved, downloaded,
+cached, indexed, or supplied to an installation. BMC documentation and software
+remain governed by BMC's applicable terms, and private project documents remain
+governed by their respective owners and agreements. This repository, its wheel,
+and its releases do not include downloaded BMC documentation, private project
+documents, or derived indexes. Users are responsible for ensuring that they are
+authorized to access and process every configured source.
+
+This is an independent project. It is not affiliated with, sponsored by, or
+endorsed by BMC Software, Inc. BMC, BMC Helix, and related product names are
+trademarks of their respective owners.
