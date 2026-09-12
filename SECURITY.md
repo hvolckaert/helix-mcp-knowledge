@@ -4,7 +4,7 @@
 
 | Version | Security support |
 | --- | --- |
-| 1.29.x | Yes |
+| 1.30.x | Yes |
 | 1.27.x and earlier | No |
 
 Security fixes target the latest supported release line. Managed installations
