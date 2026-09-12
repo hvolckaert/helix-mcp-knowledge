@@ -41,6 +41,11 @@ For a result-first walkthrough, run the
 exact agent prompt, MCP calls, evidence matrix, acceptance checklist, and recording
 outline without redistributing BMC content.
 
+For the first complete two-server workflow, use the
+[integrated CMDB data-quality case](docs/integrated-cmdb-data-quality-case.md). Knowledge
+establishes versioned documentary expectations, Gateway prepares a bounded synthetic DEV
+read, and the agent waits for explicit approval in a later turn before executing it.
+
 ## Release status
 
 Version 1.31.0 provides:

@@ -29,6 +29,7 @@ PUBLIC_SDIST_DOCS = {
     "docs/catalog-maintenance.md",
     "docs/cmdb-reconciliation-demo.md",
     "docs/dashboard-ui-contract.md",
+    "docs/integrated-cmdb-data-quality-case.md",
     "docs/mcp-client-integration.md",
     "docs/openclaw-windows-guide.md",
     "docs/openclaw-wsl-guide.md",
