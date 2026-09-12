@@ -32,6 +32,8 @@ registered project.
 - Reciprocal Rank Fusion combines lexical and semantic candidates.
 - Results are revalidated against SQLite before they are returned.
 - Exact technical-term matching adds transparent priority.
+- Final result selection prefers one ranked chunk per document before backfilling
+  additional distinct sections and repeated-section chunks.
 - An optional local reranker evaluates 10 SQLite-authorized candidates by default
   (hard maximum 32) after fusion and before diversification. Its rank is blended 50/50
   with the baseline before exact-match protection and diversification. It creates no

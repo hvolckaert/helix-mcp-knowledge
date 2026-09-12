@@ -277,27 +277,45 @@ class SearchEngine:
         rows_by_id: Mapping[str, Any],
         limit: int,
     ) -> list[FusedCandidate]:
-        """Prefer one ranked chunk per document section, then backfill if needed."""
+        """Prefer distinct documents, then distinct sections, and finally backfill."""
 
         selected: list[FusedCandidate] = []
-        deferred: list[FusedCandidate] = []
+        deferred_documents: list[FusedCandidate] = []
+        deferred_sections: list[FusedCandidate] = []
+        documents: set[str] = set()
         sections: set[tuple[str, tuple[str, ...]]] = set()
         for candidate in candidates:
             row = rows_by_id[candidate.chunk_id]
+            document_id = str(row["document_id"])
             heading_path = tuple(json.loads(row["heading_path_json"] or "[]"))
-            section = (str(row["document_id"]), heading_path)
+            section = (document_id, heading_path)
+            if document_id in documents:
+                deferred_documents.append(candidate)
+                continue
+            documents.add(document_id)
+            sections.add(section)
+            selected.append(candidate)
+            if len(selected) == limit:
+                return selected
+
+        for candidate in deferred_documents:
+            row = rows_by_id[candidate.chunk_id]
+            section = (
+                str(row["document_id"]),
+                tuple(json.loads(row["heading_path_json"] or "[]")),
+            )
             if section in sections:
-                deferred.append(candidate)
+                deferred_sections.append(candidate)
                 continue
             sections.add(section)
             selected.append(candidate)
             if len(selected) == limit:
                 return selected
 
-        for candidate in deferred:
+        for candidate in deferred_sections:
             selected.append(candidate)
             if len(selected) == limit:
-                break
+                return selected
         return selected
 
     def _lexical_candidates(

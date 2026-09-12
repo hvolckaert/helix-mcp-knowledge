@@ -123,7 +123,7 @@ def _candidate(chunk_id: str, score: float) -> FusedCandidate:
     )
 
 
-def test_diversification_prefers_distinct_document_sections() -> None:
+def test_diversification_prefers_distinct_documents_before_sections() -> None:
     candidates = [
         _candidate("first", 4.0),
         _candidate("same-section", 3.0),
@@ -141,8 +141,8 @@ def test_diversification_prefers_distinct_document_sections() -> None:
 
     assert [candidate.chunk_id for candidate in selected] == [
         "first",
-        "other-section",
         "other-document",
+        "other-section",
     ]
 
 
