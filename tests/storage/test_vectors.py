@@ -28,7 +28,7 @@ def test_qdrant_filters_all_relevant_to_official_plus_effective_project() -> Non
         url=":memory:",
         collection="test_chunks",
         dimension=2,
-        api_key_env="UNUSED_QDRANT_KEY",
+        api_key_env="UNUSED_QDRANT_KEY",  # pragma: allowlist secret
     )
     index.upsert(
         [
@@ -72,7 +72,7 @@ def test_qdrant_matches_the_requested_product_and_version_as_a_pair() -> None:
         url=":memory:",
         collection="paired_product_versions",
         dimension=2,
-        api_key_env="UNUSED_QDRANT_KEY",
+        api_key_env="UNUSED_QDRANT_KEY",  # pragma: allowlist secret
     )
     mismatched = payload("bmc_official", None, "26.1")
     mismatched["product_ids"] = ["cmdb", "itsm"]
@@ -100,7 +100,7 @@ def test_local_qdrant_persists_and_can_reset(tmp_path: Path) -> None:
         path=path,
         collection="persistent_chunks",
         dimension=2,
-        api_key_env="UNUSED_QDRANT_KEY",
+        api_key_env="UNUSED_QDRANT_KEY",  # pragma: allowlist secret
     )
     first.upsert([VectorRecord("chk_persisted", [1.0, 0.0], payload("bmc_official", None, "26.1"))])
     first.client.close()
@@ -110,7 +110,7 @@ def test_local_qdrant_persists_and_can_reset(tmp_path: Path) -> None:
         path=path,
         collection="persistent_chunks",
         dimension=2,
-        api_key_env="UNUSED_QDRANT_KEY",
+        api_key_env="UNUSED_QDRANT_KEY",  # pragma: allowlist secret
     )
     found = reopened.search(
         [1.0, 0.0],

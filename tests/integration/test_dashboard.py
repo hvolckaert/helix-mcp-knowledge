@@ -973,6 +973,7 @@ def test_dashboard_exposes_remove_for_damaged_managed_reranker_storage(
                 "runtime": f"runtime/reranker-1-{'d' * 32}",
                 "model_path": f"models/bge-reranker-v2-m3-{'e' * 32}",
                 "model_id": "BAAI/bge-reranker-v2-m3",
+                # pragma: allowlist nextline secret
                 "model_revision": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
                 "host": "127.0.0.1",
                 "port": 8768,

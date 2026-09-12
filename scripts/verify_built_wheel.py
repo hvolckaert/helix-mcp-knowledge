@@ -24,6 +24,14 @@ REQUIRED_RESOURCES = {
     "helix_mcp_knowledge/resources/requirements/reranker-component.txt",
     "helix_mcp_knowledge/resources/requirements/semantic-component.txt",
 }
+PUBLIC_SDIST_DOCS = {
+    "docs/architecture/v1-specification.md",
+    "docs/catalog-maintenance.md",
+    "docs/dashboard-ui-contract.md",
+    "docs/mcp-client-integration.md",
+    "docs/openclaw-windows-guide.md",
+    "docs/openclaw-wsl-guide.md",
+}
 FORBIDDEN_DEVELOPMENT_MARKERS = ("example_project",)
 
 
@@ -60,7 +68,8 @@ def main() -> int:
     source_distribution = source_distributions[0]
 
     with tarfile.open(source_distribution, "r:gz") as archive:
-        member_names = [member.name.casefold() for member in archive.getmembers()]
+        members = archive.getmembers()
+        member_names = [member.name.casefold() for member in members]
         private_paths = [
             name
             for name in member_names
@@ -69,6 +78,18 @@ def main() -> int:
         if private_paths:
             raise RuntimeError(
                 f"source distribution contains private project paths: {private_paths}"
+            )
+        archive_prefix = f"helix_mcp_knowledge-{expected_version}/"
+        packaged_docs = {
+            member.name.removeprefix(archive_prefix)
+            for member in members
+            if member.isfile() and member.name.startswith(f"{archive_prefix}docs/")
+        }
+        if packaged_docs != PUBLIC_SDIST_DOCS:
+            raise RuntimeError(
+                "source distribution documentation differs from the public allowlist: "
+                f"missing={sorted(PUBLIC_SDIST_DOCS - packaged_docs)}, "
+                f"unexpected={sorted(packaged_docs - PUBLIC_SDIST_DOCS)}"
             )
         readme_member = next(
             (member for member in archive.getmembers() if member.name.endswith("/README.md")),

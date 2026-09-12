@@ -21,11 +21,12 @@ def test_publication_metadata_uses_mit_for_original_project_material() -> None:
     assert "Copyright (c) 2026 Hugo Volckaert" in license_text
 
 
-def test_distributed_configuration_is_product_and_project_free() -> None:
-    config = load_config(REPOSITORY_ROOT / "config/distribution-config.yaml")
-    assert config.projects.default_project is None
-    assert config.official_docs.automatic_sync is True
-    assert config.official_docs.products == {}
+def test_public_configurations_are_product_and_project_free() -> None:
+    for relative_path in ("config/config.yaml", "config/distribution-config.yaml"):
+        config = load_config(REPOSITORY_ROOT / relative_path)
+        assert config.projects.default_project is None
+        assert config.official_docs.automatic_sync is True
+        assert config.official_docs.products == {}
 
 
 def test_server_architecture_reference_is_not_a_retrieval_source() -> None:

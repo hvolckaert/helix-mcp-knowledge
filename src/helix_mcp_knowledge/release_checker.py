@@ -1,4 +1,4 @@
-"""Embedded, leader-elected checks for newer private GitHub releases."""
+"""Embedded, leader-elected checks for newer immutable GitHub releases."""
 
 from __future__ import annotations
 

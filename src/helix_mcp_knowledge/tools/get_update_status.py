@@ -11,7 +11,7 @@ def register_get_update_status(server: MCPServer, application: KnowledgeApplicat
     @server.tool(
         name="get_update_status",
         description=(
-            "Return the cached private release status. Pass refresh=true to perform a "
+            "Return the cached release status. Pass refresh=true to perform a "
             "read-only GitHub check; this tool never installs an update."
         ),
         annotations=REMOTE_READ_ONLY,

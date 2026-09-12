@@ -8,6 +8,34 @@ An MCP server for evidence-based retrieval across the BMC Helix documentation
 ecosystem. It keeps documentary knowledge (`helix-mcp-knowledge`) separate from
 live environment data (`helix-mcp-gateway`).
 
+## One autonomous Helix agent, two MCP servers
+
+An autonomous Helix specialist needs two different kinds of evidence:
+
+1. **Knowledge** answers what the applicable BMC and project documentation says,
+   with product, version, project, source, and section provenance.
+2. **Gateway** observes the authorised live environment and exposes governed
+   operations under its own policy and approval controls.
+3. The agent compares documentation with live state, distinguishes facts from
+   inference, and acts only through the capabilities it has been granted.
+
+Knowledge deliberately has no tool for changing a live Helix system. Its nine MCP
+tools search and expand local evidence, expose index readiness, and select only the
+process-local project context. See [MCP tools](#mcp-tools) for the complete contract.
+
+## Quick start from a checkout
+
+```bash
+uv sync --frozen --extra dev
+uv run helix-mcp-knowledge init-db
+uv run helix-mcp-knowledge status
+uv run helix-mcp-knowledge serve
+```
+
+The repository and packaged configurations start with no product or private project
+selected, so this sequence downloads no documentation. Use `configure` or the local
+dashboard when you are ready to select an authorised product and version.
+
 ## Release status
 
 Version 1.28.1 provides:
@@ -95,7 +123,7 @@ Version 1.28.1 provides:
 - versions 26.1, 26.2, and 26.3 for five versioned product spaces, plus the rolling
   BMC Helix Discovery SaaS corpus;
 - incremental synchronization of private project documentation;
-- transactional updates from private GitHub releases with backup and rollback;
+- transactional updates from immutable GitHub releases with backup and rollback;
 - automatic retention of the active and previous runtimes, the latest successful
   backup, recent failed-update backups, and only the active wheel download;
 - unit, isolation, packaging, Linux, Windows, and always-on hermetic MCP `stdio`
@@ -182,11 +210,11 @@ downloaded documents.
 
 Configuration is resolved in this order: `--config`,
 `HELIX_KNOWLEDGE_CONFIG`, `config/config.yaml` in a development checkout, then
-the per-user workspace. The distributed template enables no products and
-contains no private projects; each user selects products and versions through
-`configure` or the dashboard.
+the per-user workspace. The repository and distributed templates enable no
+products and contain no private projects; each user selects products and versions
+through `configure` or the dashboard.
 
-Detailed operating guides cover private release download, first synchronization,
+Detailed operating guides cover release download, first synchronization,
 acceptance, updates, and rollback:
 
 - [OpenClaw on WSL or Linux](docs/openclaw-wsl-guide.md)
@@ -207,7 +235,7 @@ WSL or Linux from a checkout:
 ./scripts/install-linux.sh --version 1.28.1
 ```
 
-WSL or Linux directly from the private release:
+WSL or Linux directly from the GitHub release:
 
 ```bash
 gh release download v1.28.1 \

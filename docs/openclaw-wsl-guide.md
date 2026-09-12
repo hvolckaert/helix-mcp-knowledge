@@ -1,6 +1,6 @@
 # Installing and maintaining Helix Knowledge on WSL/Linux
 
-This guide installs `helix-mcp-knowledge` from a private GitHub release without
+This guide installs `helix-mcp-knowledge` from a GitHub release without
 cloning the repository or relying on Windows Task Scheduler. It also covers the
 first synchronization, acceptance checks, transactional updates, and rollback.
 
@@ -9,8 +9,7 @@ first synchronization, acceptance checks, transactional updates, and rollback.
 - WSL with an active Linux distribution, or a supported Linux host.
 - Python 3.12 or later with virtual-environment support.
 - OpenClaw is optional and provides the recommended automatic MCP integration.
-- GitHub CLI (`gh`) authenticated with access to the private
-  `hvolckaert/helix-mcp-knowledge` repository.
+- GitHub CLI (`gh`) authenticated for release download and update checks.
 - HTTPS access to `docs.helixops.ai`.
 
 Verify the environment:
@@ -36,7 +35,7 @@ From a checkout of this version:
 ./scripts/install-linux.sh --version 1.28.1
 ```
 
-You can also run the installer attached to the private release without cloning
+You can also run the installer attached to the release without cloning
 the repository:
 
 ```bash
@@ -87,7 +86,7 @@ export HELIX_KNOWLEDGE_DOWNLOAD="$HELIX_KNOWLEDGE_HOME/downloads/$HELIX_KNOWLEDG
 mkdir -p "$HELIX_KNOWLEDGE_RUNTIME" "$HELIX_KNOWLEDGE_DOWNLOAD"
 ```
 
-Download the wheel from the private release:
+Download the wheel from the GitHub release:
 
 ```bash
 gh release download "v$HELIX_KNOWLEDGE_VERSION" \
@@ -438,7 +437,7 @@ seconds is not, by itself, a failure.
 
 ## 10. Pilot acceptance checklist
 
-- [ ] The wheel was downloaded from the private release, without a local checkout.
+- [ ] The wheel was downloaded from the GitHub release, without a local checkout.
 - [ ] The package is installed in an independent versioned runtime.
 - [ ] `pip check` reports no broken dependencies.
 - [ ] The stable launcher exists under the workspace `bin` directory.

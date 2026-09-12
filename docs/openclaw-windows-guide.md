@@ -22,7 +22,7 @@ not install a Windows service and requires no administrator rights.
 - PowerShell 7 recommended.
 - Python 3.12 or later with the `py` launcher.
 - OpenClaw is optional and provides the recommended automatic MCP integration.
-- GitHub CLI (`gh`) authenticated with access to the private repository.
+- GitHub CLI (`gh`) authenticated for release download and update checks.
 - HTTPS access to `docs.helixops.ai`.
 
 Verify the environment:
@@ -108,7 +108,7 @@ $HelixDownload = Join-Path $HelixHome "downloads\$HelixVersion"
 New-Item -ItemType Directory -Force -Path $HelixRuntime, $HelixDownload | Out-Null
 ```
 
-Download the official wheel from the private release:
+Download the official wheel from the GitHub release:
 
 ```powershell
 gh release download "v$HelixVersion" `
@@ -454,7 +454,7 @@ seconds is not, by itself, a failure.
 ## 11. Windows acceptance checklist
 
 - [ ] Python 3.12 and GitHub CLI work for the same user.
-- [ ] The wheel came from the private release, not a checkout.
+- [ ] The wheel came from the GitHub release, not a checkout.
 - [ ] `pip check` reports no broken dependencies.
 - [ ] The `.exe` entry points exist under `venv\Scripts`.
 - [ ] The stable `.cmd` launcher exists under the workspace `bin` directory.

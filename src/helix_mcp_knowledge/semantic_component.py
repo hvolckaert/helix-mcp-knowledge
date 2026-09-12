@@ -33,7 +33,7 @@ from .semantic_client import SemanticServiceClient
 from .update_lock import UpdateLock, UpdateLockBusyError
 
 SEMANTIC_COMPONENT_VERSION = 3
-SEMANTIC_MODEL_REVISION = "84790c1a606f60d06c6932e4ecdd174b466d84ac"
+SEMANTIC_MODEL_REVISION = "84790c1a606f60d06c6932e4ecdd174b466d84ac"  # pragma: allowlist secret
 SEMANTIC_HOST = "127.0.0.1"
 SEMANTIC_PORT = 8767
 SEMANTIC_REQUEST_TIMEOUT_SECONDS = 1800

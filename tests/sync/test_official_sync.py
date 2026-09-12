@@ -132,7 +132,7 @@ def test_downloader_rejects_redirect_to_non_allowlisted_domain(tmp_path: Path) -
 @pytest.mark.parametrize(
     "url",
     [
-        "https://user:secret@docs.bmc.com/source",
+        "https://" + "example-user" + ":" + "example-password" + "@docs.bmc.com/source",
         "https://docs.bmc.com:8443/source",
         "https://example.com/source",
         "http://docs.bmc.com/source",

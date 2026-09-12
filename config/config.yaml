@@ -17,17 +17,9 @@ official_docs:
   automatic_sync: true
   bootstrap_on_empty: true
   interval_hours: 24
-  retain_unselected_versions: true
-  products:
-    arsystem:
-      versions:
-        - "26.1"
-    cmdb:
-      versions:
-        - "26.1"
-    itsm:
-      versions:
-        - "26.1"
+  retain_unselected_versions: false
+  # Public-safe checkout baseline: selection is always an explicit user action.
+  products: {}
 
 catalog_updates:
   enabled: true
@@ -62,7 +54,7 @@ storage:
   qdrant:
     url: http://localhost:6333
     collection: helix_knowledge_chunks
-    api_key_env: QDRANT_API_KEY
+    api_key_env: QDRANT_API_KEY  # pragma: allowlist secret
 
 embeddings:
   model: BAAI/bge-m3
@@ -123,14 +115,14 @@ ingestion:
     authentication:
       mode: none
       username_env: BMC_DOCS_USERNAME
-      password_env: BMC_DOCS_PASSWORD
+      password_env: BMC_DOCS_PASSWORD  # pragma: allowlist secret
       browser:
-        headless: false
+        headless: true
         profile_path: data/cache/bmc-browser-profile
         login_url: https://docs.helixops.ai/bin/login/XWiki/XWikiLogin
         challenge_timeout_seconds: 45
         username_selector: 'input[name="username"], input[name="identifier"], input[type="email"]'
-        password_selector: 'input[name="password"], input[type="password"]'
+        password_selector: 'input[name="password"], input[type="password"]'  # pragma: allowlist secret
         submit_selector: 'button[type="submit"], input[type="submit"]'
 
 logging:
