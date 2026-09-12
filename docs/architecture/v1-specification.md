@@ -22,7 +22,9 @@ registered project.
 ## Persistence and retrieval
 
 - SQLite is the source of truth for documents, chunks, and metadata.
-- FTS5/BM25 provides lexical retrieval.
+- FTS5/BM25 provides lexical retrieval. Recognizably Spanish queries receive a bounded,
+  deterministic expansion into English Helix terminology before FTS execution; original
+  terms are retained and other query languages are unchanged.
 - A dashboard-managed isolated component provides optional BGE-M3 dense embeddings.
 - One token-protected loopback service owns the model and persistent local Qdrant
   storage across MCP and synchronization processes.
