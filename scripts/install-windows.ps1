@@ -3,7 +3,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string]$Version = '1.30.0',
+    [string]$Version = '1.31.0',
 
     [string]$Repository = 'hvolckaert/helix-mcp-knowledge',
 
