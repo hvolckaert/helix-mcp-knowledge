@@ -116,9 +116,9 @@ the expanded context, while its citation metadata comes from the corresponding
 | Normalization prepares CI data before duplicate identification and merging. | Duplicate-CI merging procedure | Title, CMDB 26.1, official scope, URL |
 | A specific job setting or live dataset is configured correctly. | Not established by this scenario | Must be omitted or labelled unverified |
 
-This matrix separates documentary evidence from live state and from agent inference. A
-future integrated demo can use Gateway to inspect authorised environment metadata after
-Knowledge has established the documentary expectation.
+This matrix separates documentary evidence from live state and from agent inference. The
+[integrated CMDB data-quality case](integrated-cmdb-data-quality-case.md) continues the
+workflow with Gateway after Knowledge has established the documentary expectation.
 
 ## Reference observation
 
