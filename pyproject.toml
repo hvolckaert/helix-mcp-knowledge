@@ -1,0 +1,87 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "helix-mcp-knowledge"
+version = "1.28.1"
+description = "MCP server for BMC Helix official and project knowledge"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "Helix MCP Knowledge Team" }]
+dependencies = [
+  "beautifulsoup4>=4.13,<5",
+  "httpx>=0.28,<1",
+  "mcp>=2.0,<3",
+  "pip==26.2.1",
+  "platformdirs>=4.3,<5",
+  "pydantic>=2.11,<3",
+  "pypdf>=6.16.1,<7",
+  "PyYAML>=6.0,<7",
+  "python-docx>=1.2,<2",
+]
+
+[project.optional-dependencies]
+browser-sync = [
+  "playwright>=1.55,<2",
+]
+dev = [
+  "build>=1.2,<2",
+  "pytest>=9.0.3,<10",
+  "pytest-cov>=6,<7",
+  "reportlab>=4.4,<5",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+helix-mcp-knowledge = "helix_mcp_knowledge.cli.main:main"
+helix-mcp-knowledge-server = "helix_mcp_knowledge.server:main"
+helix-mcp-knowledge-worker = "helix_mcp_knowledge.official_worker:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/helix_mcp_knowledge"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"config/sources/bmc-official-26.1.yaml" = "helix_mcp_knowledge/resources/config/sources/bmc-official-26.1.yaml"
+"config/projects/example.yaml.example" = "helix_mcp_knowledge/resources/config/projects/example.yaml.example"
+"config/projects/example.sources.yaml.example" = "helix_mcp_knowledge/resources/config/projects/example.sources.yaml.example"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/config/projects/example.yaml.example",
+  "/config/projects/example.sources.yaml.example",
+  "/config/sources/bmc-official-26.1.yaml",
+  "/docs",
+  "/requirements",
+  "/scripts/install-linux.sh",
+  "/scripts/install-windows.ps1",
+  "/runtime-requirements.txt",
+  "/README.md",
+  "/CONTRIBUTING.md",
+  "/SECURITY.md",
+  "/pyproject.toml",
+]
+exclude = [
+  "/tests/**",
+]
+
+[tool.hatch.build.targets.sdist.force-include]
+"config/distribution-config.yaml" = "config/config.yaml"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+markers = [
+  "e2e: acceptance tests that launch the packaged MCP server against a real index snapshot",
+  "ocr: acceptance tests that require the optional local OCR component",
+  "reranker: acceptance tests that require the optional local reranker component",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

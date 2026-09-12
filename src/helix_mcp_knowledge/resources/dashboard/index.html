@@ -1,0 +1,1767 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="helix-dashboard-token" content="__DASHBOARD_TOKEN__">
+  <title>IntelliAgentia · Helix MCP Knowledge</title>
+  <style>
+    :root {
+      --navy-950: #031b36;
+      --navy-900: #06264c;
+      --navy-800: #0a3768;
+      --cyan-600: #0099b9;
+      --cyan-500: #08abc8;
+      --cyan-100: #dff7fb;
+      --ink: #10243a;
+      --muted: #60748a;
+      --line: #dbe6ee;
+      --surface: #ffffff;
+      --canvas: #f3f8fb;
+      --success: #127a62;
+      --warning: #b2670c;
+      --danger: #b8384c;
+      --shadow: 0 18px 45px rgba(6, 38, 76, .09);
+      font-family: Inter, Aptos, "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--canvas);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--canvas); }
+    button, input, select { font: inherit; }
+    button, select, input[type="checkbox"] { cursor: pointer; }
+    button:focus-visible, select:focus-visible, input:focus-visible {
+      outline: 3px solid rgba(8, 171, 200, .28);
+      outline-offset: 2px;
+    }
+    .shell { width: min(1440px, calc(100% - 40px)); margin: 0 auto; padding: 24px 0 56px; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+      padding: 18px 22px; color: white; border-radius: 22px;
+      background:
+        radial-gradient(circle at 78% -80%, rgba(24, 200, 222, .35), transparent 45%),
+        linear-gradient(125deg, var(--navy-950), var(--navy-800));
+      box-shadow: var(--shadow); position: relative; overflow: hidden;
+    }
+    .topbar::after {
+      content: ""; position: absolute; right: -85px; bottom: -103px; width: 390px; height: 145px;
+      border: 18px solid rgba(13, 185, 211, .25); border-left-color: transparent;
+      border-bottom-color: transparent; border-radius: 50%; transform: rotate(-7deg); pointer-events: none;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; z-index: 1; }
+    .brand-mark {
+      position: relative; display: grid; place-items: center; width: 52px; height: 52px;
+      flex: 0 0 auto; border-radius: 15px; background: white; color: var(--navy-900);
+      font-size: 1.65rem; font-weight: 800; letter-spacing: -.12em; padding-right: .12em;
+    }
+    .brand-mark::after {
+      content: ""; position: absolute; width: 34px; height: 14px; right: 3px; bottom: 9px;
+      border-top: 5px solid var(--cyan-500); border-radius: 50%; transform: rotate(-13deg);
+    }
+    .brand-name { margin: 0; font-size: 1.28rem; font-weight: 730; letter-spacing: -.025em; }
+    .brand-name span { color: #26c4dc; }
+    .brand-product { margin: 3px 0 0; color: #c8deed; font-size: .9rem; }
+    .version {
+      z-index: 1; padding: 8px 12px; border: 1px solid rgba(255,255,255,.24);
+      border-radius: 999px; color: #dff7fb; font-size: .82rem; background: rgba(255,255,255,.07);
+    }
+    .summary {
+      display: grid; grid-template-columns: 1.2fr repeat(3, minmax(160px, .7fr)); gap: 14px;
+      margin: 18px 0;
+    }
+    .intro, .metric { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+    .intro { padding: 21px 22px; }
+    .intro h1 { margin: 0 0 5px; font-size: 1.34rem; line-height: 1.25; letter-spacing: -.025em; }
+    .intro p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .metric { padding: 17px 18px; display: flex; flex-direction: column; justify-content: center; }
+    .metric-label { color: var(--muted); font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .metric-value { margin-top: 5px; font-size: 1.25rem; font-weight: 760; letter-spacing: -.02em; }
+    .metric-detail { margin-top: 3px; color: var(--muted); font-size: .78rem; }
+    .update-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+    .mini-button {
+      border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px;
+      color: var(--navy-900); background: #f8fbfd; font-size: .73rem; font-weight: 720;
+    }
+    .mini-button:hover { border-color: var(--cyan-500); background: var(--cyan-100); }
+    .mini-button.install { border-color: transparent; color: white; background: var(--cyan-600); }
+    .mini-button:disabled { opacity: .5; cursor: wait; }
+    .status { display: inline-flex; align-items: center; gap: 7px; }
+    .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .status.ready::before, .status.ok::before, .status.current::before { background: var(--success); box-shadow: 0 0 0 4px rgba(18,122,98,.11); }
+    .status.running::before, .status.pending::before, .status.waiting::before, .status.available::before { background: var(--cyan-500); box-shadow: 0 0 0 4px rgba(8,171,200,.12); }
+    .status.error::before { background: var(--danger); box-shadow: 0 0 0 4px rgba(184,56,76,.11); }
+    .status.cancelled::before, .status.reindex_required::before, .status.unavailable::before { background: var(--warning); box-shadow: 0 0 0 4px rgba(178,103,12,.11); }
+    .tab-list {
+      display: inline-flex; gap: 5px; margin: 0 0 14px; padding: 5px;
+      border: 1px solid var(--line); border-radius: 15px; background: #eaf2f7;
+    }
+    .tab-button {
+      min-width: 190px; border: 0; border-radius: 11px; padding: 10px 15px;
+      position: relative; color: var(--muted); background: transparent; text-align: left;
+    }
+    .tab-button strong { display: block; color: inherit; font-size: .9rem; }
+    .tab-button span { display: block; margin-top: 2px; font-size: .72rem; }
+    .tab-button:hover { color: var(--navy-900); background: rgba(255,255,255,.55); }
+    .tab-button[aria-selected="true"] { color: var(--navy-900); background: white; box-shadow: 0 3px 12px rgba(6,38,76,.09); }
+    .tab-dirty {
+      position: absolute; top: 10px; right: 10px; width: 7px; height: 7px;
+      border-radius: 999px; background: var(--warning); opacity: 0; transform: scale(.5);
+      transition: opacity .15s ease, transform .15s ease;
+    }
+    .tab-button.dirty .tab-dirty { opacity: 1; transform: scale(1); }
+    .tab-panel { min-width: 0; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(310px, .75fr); gap: 18px; align-items: start; }
+    .settings-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr); gap: 18px; align-items: start; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 8px 28px rgba(6,38,76,.045); }
+    .panel-header { display: flex; justify-content: space-between; align-items: start; gap: 20px; padding: 21px 22px 16px; }
+    .panel h2 { margin: 0; font-size: 1.05rem; letter-spacing: -.018em; }
+    .panel-copy { margin: 5px 0 0; color: var(--muted); font-size: .87rem; line-height: 1.45; }
+    .catalog-summary { flex: 0 0 auto; padding: 7px 10px; border-radius: 999px; color: var(--navy-800); background: var(--cyan-100); font-size: .76rem; font-weight: 720; white-space: nowrap; }
+    .catalog-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+    [hidden] { display: none !important; }
+    .onboarding {
+      margin: 0 22px 17px; padding: 15px 17px; border: 1px solid #a9dfe9;
+      border-radius: 14px; background: linear-gradient(115deg, #f0fbfd, #f8fcfe);
+    }
+    .onboarding strong { display: block; color: var(--navy-900); font-size: .95rem; }
+    .onboarding p { margin: 5px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.48; }
+    .onboarding .time-note { color: var(--warning); font-weight: 650; }
+    .products { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; padding: 0 22px 22px; }
+    .product-card { border: 1px solid var(--line); border-radius: 15px; padding: 15px; transition: border-color .18s, box-shadow .18s, transform .18s; }
+    .product-card.selected { border-color: rgba(8,171,200,.65); box-shadow: 0 0 0 3px rgba(8,171,200,.08); }
+    .product-card:hover { transform: translateY(-1px); }
+    .product-card.unavailable { background: #f8fafc; color: var(--muted); }
+    .product-title { display: flex; align-items: flex-start; gap: 10px; }
+    .product-title input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--cyan-600); }
+    .product-name { font-weight: 720; line-height: 1.35; }
+    .product-id { display: block; margin-top: 3px; color: var(--muted); font: 600 .73rem ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .product-note { margin: 10px 0 0 28px; color: var(--muted); font-size: .76rem; line-height: 1.4; }
+    .version-list { display: flex; flex-wrap: wrap; gap: 7px; margin: 13px 0 0 28px; }
+    .version-choice { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 9px; font-size: .875rem; background: #fbfdfe; }
+    .version-choice input { accent-color: var(--cyan-600); }
+    .version-choice.indexed { border-color: #b7ddcf; background: #f1fbf7; }
+    .soon { margin: 12px 0 0 28px; font-size: .8rem; }
+    .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+    .setting { padding: 16px 22px; border-bottom: 1px solid var(--line); }
+    .setting:nth-child(odd) { border-right: 1px solid var(--line); }
+    .setting label { display: flex; align-items: center; gap: 10px; font-weight: 670; font-size: .9rem; }
+    .setting input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--cyan-600); }
+    .setting small { display: block; margin: 5px 0 0 28px; color: var(--muted); line-height: 1.4; }
+    .ocr-setting { padding: 0 22px 21px; }
+    .ocr-setting label { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: .91rem; }
+    .ocr-setting input { width: 18px; height: 18px; accent-color: var(--cyan-600); }
+    .ocr-detail { margin: 7px 0 0 28px; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+    .number-line { display: flex; align-items: center; gap: 10px; }
+    .number-line input { width: 86px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; }
+    .actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 18px 22px; }
+    .button { border: 0; border-radius: 11px; padding: 10px 15px; font-weight: 720; color: white; background: var(--navy-900); transition: transform .15s, opacity .15s, background .15s; }
+    .button:hover { background: var(--navy-800); transform: translateY(-1px); }
+    .button.primary { background: linear-gradient(115deg, var(--cyan-600), var(--cyan-500)); }
+    .button.secondary { color: var(--navy-900); background: var(--cyan-100); }
+    .button:disabled { opacity: .5; cursor: wait; transform: none; }
+    .side { display: grid; gap: 18px; }
+    .advanced-note { flex: 0 0 auto; padding: 7px 10px; border: 1px solid #a9dfe9; border-radius: 999px; color: var(--navy-800); background: #f0fbfd; font-size: .74rem; font-weight: 720; }
+    .optional-panel { grid-column: 1 / -1; }
+    .advanced-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 0 22px 22px; }
+    .feature-card { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 15px; background: #fbfdfe; }
+    .feature-head { display: flex; justify-content: space-between; align-items: start; gap: 16px; margin-bottom: 14px; }
+    .feature-head h3 { margin: 0; color: var(--navy-950); font-size: .95rem; }
+    .feature-head .panel-copy { font-size: .8rem; }
+    .feature-card .ocr-setting { padding: 0; }
+    .savebar {
+      position: sticky; z-index: 4; bottom: 14px; display: flex; align-items: center;
+      justify-content: space-between; gap: 20px; margin-top: 18px; padding: 14px 16px;
+      border-radius: 16px; color: white; background: rgba(5,24,45,.95);
+      box-shadow: 0 15px 40px rgba(5,24,45,.22); backdrop-filter: blur(10px);
+    }
+    .savebar p { margin: 0; color: #d3e2ec; font-size: .84rem; line-height: 1.4; }
+    .savebar .actions { flex: 0 0 auto; padding: 0; }
+    .savebar .button.secondary { color: white; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.08); }
+    .savebar .button.secondary:hover { background: rgba(255,255,255,.15); }
+    .savebar .button.primary { color: #032b38; background: var(--cyan-500); }
+    .savebar .button.primary:hover { background: #3ac9dc; }
+    .review { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 9px; }
+    .review li { padding: 10px 12px; border-radius: 10px; background: #f2f6f8; font-size: .84rem; line-height: 1.45; }
+    .connection-list { padding: 0 22px 20px; display: grid; gap: 10px; }
+    .connection-card { border: 1px solid var(--line); border-radius: 13px; padding: 12px 13px; background: #fbfdfe; }
+    .connection-card.connected { border-color: #b7ddcf; background: #f1fbf7; }
+    .connection-card.warning { border-color: #e7c893; background: #fff8eb; }
+    .connection-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .connection-name { font-weight: 720; }
+    .connection-badge { padding: 4px 7px; border-radius: 999px; color: var(--navy-800); background: var(--cyan-100); font-size: .68rem; font-weight: 760; text-transform: uppercase; }
+    .connection-badge.connected { color: var(--success); background: #dff5ec; }
+    .connection-badge.warning { color: var(--warning); background: #ffedc7; }
+    .connection-description { margin: 6px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.4; }
+    .projects-panel { margin-top: 18px; }
+    .project-list { padding: 0 22px 20px; display: grid; gap: 12px; }
+    .project { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+    .project-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; background: #f8fbfd; }
+    .project-identity { min-width: 0; }
+    .project-name { font-weight: 720; }
+    .project-id { display: block; margin-top: 2px; color: var(--muted); font: 600 .7rem ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .project-head-actions { display: flex; align-items: center; gap: 9px; }
+    .project-status { color: var(--success); font-size: .78rem; font-weight: 700; text-transform: uppercase; }
+    .project-body { padding: 13px 16px 16px; }
+    .project-path { display: grid; grid-template-columns: minmax(170px, .42fr) minmax(0, 1.58fr); align-items: center; gap: 12px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
+    .project-path label { font-size: .82rem; font-weight: 700; }
+    .project-path label span { display: block; margin-top: 3px; color: var(--muted); font-size: .7rem; font-weight: 550; }
+    .project-path input { min-width: 0; width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; font: 500 .78rem ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .path-control { min-width: 0; display: flex; align-items: stretch; gap: 8px; }
+    .path-control input { flex: 1 1 auto; min-width: 0; }
+    .path-control .button { flex: 0 0 auto; padding: 9px 12px; }
+    .project-index { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .project-index-copy { min-width: 0; }
+    .project-index-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .project-index-head strong { font-size: .84rem; }
+    .project-index-detail { margin: 5px 0 0; color: var(--muted); font-size: .76rem; line-height: 1.4; }
+    .project-index .button { flex: 0 0 auto; }
+    .project-versions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 10px; padding-top: 13px; }
+    .project-row { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(100px, .65fr); align-items: center; gap: 10px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 11px; background: #fbfdfe; }
+    .project-row.selected { border-color: #b7ddcf; background: #f1fbf7; }
+    .project-row label { display: flex; align-items: flex-start; gap: 8px; min-width: 0; font-size: .82rem; font-weight: 680; }
+    .project-row input { width: 16px; height: 16px; flex: 0 0 auto; margin: 1px 0 0; accent-color: var(--cyan-600); }
+    .project-product-name { display: block; line-height: 1.3; }
+    .project-product-id { display: block; margin-top: 2px; color: var(--muted); font: 600 .68rem ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .project-row select:disabled { opacity: .55; cursor: not-allowed; }
+    select { min-width: 0; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; }
+    .sync-body { padding: 0 22px 20px; }
+    .progress-track { height: 9px; border-radius: 999px; background: #e9f0f4; overflow: hidden; margin: 4px 0 9px; }
+    .progress-bar { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan-600), #39c9dd); transition: width .35s ease; }
+    .progress-bar.running { width: 100%; transform-origin: left; animation: drift 1.8s ease-in-out infinite; }
+    @keyframes drift { 0%,100% { transform: scaleX(.22) translateX(0); } 50% { transform: scaleX(.62) translateX(55%); } }
+    .progress-detail { margin: 0 0 14px; color: var(--muted); font-size: .78rem; line-height: 1.45; }
+    .sync-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 11px; }
+    .sync-stat { padding: 11px 12px; border-radius: 11px; background: #f6fafc; }
+    .sync-stat strong { display: block; font-size: 1.05rem; }
+    .sync-stat span { color: var(--muted); font-size: .76rem; }
+    .next-run { margin: 13px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.45; }
+    .version-progress { display: grid; gap: 7px; margin-top: 13px; }
+    .version-progress-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; color: var(--muted); font-size: .76rem; }
+    .version-progress-row strong { color: var(--ink); font-weight: 680; }
+    .button.danger { color: var(--danger); background: #fff0f3; border: 1px solid #f0c4cc; }
+    .button.danger:hover { color: white; background: var(--danger); }
+    .empty { padding: 4px 0 3px; color: var(--muted); font-size: .87rem; }
+    .project-empty { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 17px; border: 1px dashed #a9c6d6; border-radius: 13px; background: #f8fbfd; }
+    .project-empty strong { display: block; color: var(--navy-900); }
+    .project-empty p { margin: 4px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+    dialog { width: min(580px, calc(100% - 28px)); padding: 0; border: 0; border-radius: 18px; color: var(--ink); background: white; box-shadow: 0 25px 80px rgba(3,27,54,.28); }
+    dialog::backdrop { background: rgba(3,27,54,.54); backdrop-filter: blur(3px); }
+    .dialog-header { padding: 20px 22px 15px; border-bottom: 1px solid var(--line); }
+    .dialog-header h2 { margin: 0; font-size: 1.08rem; }
+    .dialog-header p { margin: 5px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.45; }
+    .dialog-fields { display: grid; gap: 14px; padding: 19px 22px; }
+    .dialog-field { display: grid; gap: 6px; }
+    .dialog-field label { font-size: .82rem; font-weight: 700; }
+    .dialog-field input, .dialog-field select { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; }
+    .dialog-field small { color: var(--muted); font-size: .74rem; line-height: 1.4; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 15px 22px 20px; }
+    .folder-dialog { width: min(720px, calc(100% - 28px)); }
+    .folder-browser { padding: 18px 22px 4px; }
+    .folder-locations { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 13px; }
+    .folder-location { padding: 7px 10px; }
+    .folder-path-line { display: flex; gap: 8px; }
+    .folder-path-line input { min-width: 0; flex: 1 1 auto; padding: 10px 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; font: 500 .78rem ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .folder-list { min-height: 230px; max-height: 360px; overflow: auto; margin-top: 13px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: #f8fbfd; }
+    .folder-entry { display: flex; align-items: center; width: 100%; gap: 10px; padding: 9px 10px; border: 0; border-radius: 8px; color: var(--ink); background: transparent; text-align: left; }
+    .folder-entry:hover { color: var(--navy-900); background: var(--cyan-100); }
+    .folder-entry::before { content: ""; width: 15px; height: 11px; flex: 0 0 auto; border: 2px solid var(--cyan-600); border-radius: 2px; background: white; }
+    .folder-entry.up::before { content: "↑"; display: grid; place-items: center; height: 15px; border: 0; color: var(--cyan-600); background: transparent; font-weight: 800; }
+    .folder-file { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: var(--ink); }
+    .folder-file::before { content: ""; width: 13px; height: 16px; flex: 0 0 auto; border: 1.5px solid var(--cyan-600); border-radius: 2px; background: white; }
+    .folder-file.unsupported { color: var(--muted); background: #f2f6f8; }
+    .folder-file.unsupported::before { border-color: #91a4b0; }
+    .folder-file-name { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; }
+    .folder-file-meta { flex: 0 0 auto; color: var(--muted); font-size: .7rem; }
+    .folder-empty { padding: 28px 14px; color: var(--muted); text-align: center; font-size: .84rem; }
+    .folder-selection-note { min-height: 20px; margin: 8px 0 0; color: var(--muted); font-size: .76rem; line-height: 1.4; }
+    .folder-selection-note.error { color: var(--warning); }
+    .skeleton { min-height: 110px; border-radius: 14px; background: linear-gradient(100deg,#edf3f7 20%,#f8fbfd 40%,#edf3f7 60%); background-size: 200% 100%; animation: shine 1.4s infinite; }
+    @keyframes shine { to { background-position-x: -200%; } }
+    .toast { position: fixed; right: 22px; bottom: 22px; max-width: min(420px, calc(100% - 44px)); padding: 13px 16px; border-radius: 12px; color: white; background: var(--navy-950); box-shadow: var(--shadow); opacity: 0; transform: translateY(14px); pointer-events: none; transition: .2s; z-index: 5; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: var(--danger); }
+    @media (max-width: 1040px) {
+      .summary { grid-template-columns: repeat(3, 1fr); }
+      .intro { grid-column: 1 / -1; }
+      .workspace, .settings-layout { grid-template-columns: 1fr; }
+      .side { grid-template-columns: 1fr; }
+      .optional-panel { grid-column: auto; }
+      .advanced-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .savebar { position: static; }
+    }
+    @media (max-width: 720px) {
+      body { overflow-x: hidden; }
+      .shell { width: calc(100% - 22px); max-width: 1440px; padding-top: 11px; }
+      .topbar { flex-wrap: wrap; padding: 15px; border-radius: 17px; }
+      .brand { min-width: 0; }
+      .brand-name { font-size: 1.12rem; }
+      .brand-product { display: none; }
+      .version { margin-left: auto; padding: 6px 9px; font-size: .74rem; }
+      .summary { grid-template-columns: 1fr; }
+      .intro { grid-column: auto; }
+      .intro, .metric, .panel, .product-card { min-width: 0; }
+      .panel-header { align-items: stretch; flex-direction: column; gap: 10px; }
+      .catalog-controls { justify-content: flex-start; }
+      .catalog-summary { white-space: normal; }
+      .products, .settings, .side, .advanced-grid { grid-template-columns: 1fr; }
+      .project-versions { grid-template-columns: 1fr; }
+      .project-row { grid-template-columns: 1fr; }
+      .tab-list { display: flex; width: 100%; }
+      .tab-button { min-width: 0; flex: 1; padding: 9px 10px; }
+      .tab-button span { display: none; }
+      .savebar { align-items: stretch; flex-direction: column; }
+      .savebar .actions { width: 100%; }
+      .setting:nth-child(odd) { border-right: 0; }
+      .actions { align-items: stretch; flex-direction: column-reverse; }
+      .button { width: 100%; }
+      .project-head, .project-empty { align-items: stretch; flex-direction: column; }
+      .project-head-actions { justify-content: space-between; }
+      .project-path, .project-versions { grid-template-columns: 1fr; }
+      .project-index { align-items: stretch; flex-direction: column; }
+      .project-index .button { width: 100%; }
+      .path-control { flex-wrap: wrap; }
+      .path-control input { flex-basis: 100%; }
+      .dialog-actions { flex-direction: column-reverse; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">iA</div>
+        <div>
+          <p class="brand-name">Intelli<span>Agentia</span></p>
+          <p class="brand-product">Helix MCP Knowledge · Documentation administration</p>
+        </div>
+      </div>
+      <div class="version" id="server-version">Loading…</div>
+    </header>
+
+    <section class="summary" aria-label="Operational summary">
+      <div class="intro">
+        <h1>Configure the knowledge your agents need</h1>
+        <p>Select products and versions. The server downloads, indexes, and maintains the corpus.</p>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Official corpus</span>
+        <span class="metric-value status" id="corpus-status">Loading</span>
+        <span class="metric-detail" id="corpus-detail">—</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Documents</span>
+        <span class="metric-value" id="document-count">—</span>
+        <span class="metric-detail" id="chunk-count">—</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Server</span>
+        <span class="metric-value status" id="update-status">Loading</span>
+        <span class="metric-detail" id="update-detail">—</span>
+        <div class="update-actions">
+          <button class="mini-button" type="button" id="check-update-button">Check for updates</button>
+          <button class="mini-button install" type="button" id="install-update-button" hidden>Install update</button>
+        </div>
+      </div>
+    </section>
+
+    <form id="configuration-form">
+      <nav class="tab-list" role="tablist" aria-label="Dashboard sections">
+        <button class="tab-button" type="button" role="tab" id="documentation-tab" aria-controls="documentation-panel" aria-selected="true" data-dashboard-tab="documentation" data-label="Documentation">
+          <strong>Documentation</strong>
+          <span>Products, synchronization, and projects</span>
+          <i class="tab-dirty" aria-hidden="true"></i>
+        </button>
+        <button class="tab-button" type="button" role="tab" id="settings-tab" aria-controls="settings-panel" aria-selected="false" data-dashboard-tab="settings" data-label="Settings" tabindex="-1">
+          <strong>Settings</strong>
+          <span>Maintenance, runtime, and optional components</span>
+          <i class="tab-dirty" aria-hidden="true"></i>
+        </button>
+      </nav>
+
+      <section class="tab-panel" id="documentation-panel" role="tabpanel" aria-labelledby="documentation-tab">
+        <section class="workspace">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Official products and versions</h2>
+                <p class="panel-copy">Enable any verified product and choose one or more supported versions. Selecting a product preselects its latest version.</p>
+              </div>
+              <div class="catalog-controls">
+                <span class="catalog-summary" id="catalog-summary">Loading catalog…</span>
+                <button class="mini-button" type="button" id="refresh-catalog-button">Refresh catalog</button>
+              </div>
+            </div>
+            <div class="onboarding" id="first-run" hidden>
+              <strong>Start with the documentation you need</strong>
+              <p>Choose one or more products. The latest version is selected first, and you can add older supported versions.</p>
+              <p class="time-note">The first download runs in the background and can take tens of minutes. A three-product corpus took about 44 minutes in reference testing.</p>
+            </div>
+            <div class="products" id="products"><div class="skeleton"></div><div class="skeleton"></div></div>
+          </section>
+
+          <aside class="side">
+            <section class="panel sync-panel">
+              <div class="panel-header">
+                <div>
+                  <h2>Synchronization</h2>
+                  <p class="panel-copy" id="sync-copy">Preparing status…</p>
+                </div>
+                <span class="status" id="sync-status">—</span>
+              </div>
+              <div class="sync-body">
+                <div class="progress-track" id="progress-track" role="progressbar" aria-label="Synchronization progress" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" id="progress-bar"></div></div>
+                <p class="progress-detail" id="progress-detail">No synchronization activity yet.</p>
+                <div class="sync-grid">
+                  <div class="sync-stat"><strong id="sync-processed">—</strong><span>items processed</span></div>
+                  <div class="sync-stat"><strong id="sync-documents">—</strong><span>documents indexed</span></div>
+                  <div class="sync-stat"><strong id="sync-notices">—</strong><span>unavailable or empty</span></div>
+                  <div class="sync-stat"><strong id="sync-errors">—</strong><span>errors</span></div>
+                </div>
+                <div class="version-progress" id="version-progress" hidden></div>
+                <p class="next-run" id="next-run">—</p>
+                <div class="actions" style="padding: 16px 0 0">
+                  <button class="button secondary" type="button" id="refresh-button">Refresh status</button>
+                  <button class="button danger" type="button" id="cancel-sync-button" hidden>Cancel safely</button>
+                  <button class="button" type="button" id="sync-button" disabled title="Select documentation or disable retention to clean local data">Synchronize now</button>
+                </div>
+              </div>
+            </section>
+
+          </aside>
+        </section>
+
+        <section class="panel projects-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Project documentation</h2>
+              <p class="panel-copy">Create private projects, choose their document folders, and assign the relevant BMC products and versions. Files are indexed in place and are never uploaded. Official downloads remain controlled above.</p>
+            </div>
+            <button class="button secondary" type="button" id="add-project-button">Add project</button>
+          </div>
+          <div class="project-list" id="projects"><div class="skeleton"></div></div>
+        </section>
+      </section>
+
+      <section class="tab-panel" id="settings-panel" role="tabpanel" aria-labelledby="settings-tab" hidden>
+        <div class="settings-layout">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Documentation maintenance</h2>
+                <p class="panel-copy">Control how the selected documentation is initialized, refreshed, and retained.</p>
+              </div>
+            </div>
+            <div class="settings">
+              <div class="setting">
+                <label><input type="checkbox" id="automatic-sync"> Automatic synchronization</label>
+                <small>Keeps documentation current without an external scheduler.</small>
+              </div>
+              <div class="setting">
+                <label><input type="checkbox" id="bootstrap-empty"> Automatic initial load</label>
+                <small>Downloads the corpus when an empty installation is detected.</small>
+              </div>
+              <div class="setting">
+                <label><input type="checkbox" id="retain-versions"> Keep unselected documentation</label>
+                <small>When disabled, deselected official products and versions are removed after a successful synchronization. Project documents are never affected.</small>
+              </div>
+              <div class="setting">
+                <div class="number-line">
+                  <label for="interval-hours">Update every</label>
+                  <input id="interval-hours" type="number" min="0.01" max="8760" step="1" required>
+                  <span>hours</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Runtime connections</h2>
+                <p class="panel-copy">OpenClaw is connected automatically when detected during installation. Dashboard persistence is managed separately.</p>
+              </div>
+            </div>
+            <div class="connection-list" id="openclaw-integration"><div class="skeleton"></div></div>
+          </section>
+
+          <section class="panel optional-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Optional components</h2>
+                <p class="panel-copy">Install local extensions only when your documentation or retrieval requirements need them.</p>
+              </div>
+              <span class="advanced-note">Downloaded on demand</span>
+            </div>
+            <div class="advanced-grid">
+              <article class="feature-card">
+                <div class="feature-head">
+                  <div>
+                    <h3>Scanned PDF OCR</h3>
+                    <p class="panel-copy">Recognition for image-only pages in project PDFs.</p>
+                  </div>
+                  <span class="status" id="ocr-status">Loading</span>
+                </div>
+                <div class="ocr-setting">
+                  <label><input type="checkbox" id="ocr-enabled"> Enable OCR for scanned project PDFs</label>
+                  <p class="ocr-detail" id="ocr-detail">Checking the optional component…</p>
+                </div>
+              </article>
+
+              <article class="feature-card">
+                <div class="feature-head">
+                  <div>
+                    <h3>Semantic search</h3>
+                    <p class="panel-copy">BGE-M3 and managed local Qdrant hybrid retrieval.</p>
+                  </div>
+                  <span class="status" id="semantic-status">Loading</span>
+                </div>
+                <div class="ocr-setting">
+                  <label><input type="checkbox" id="semantic-enabled"> Enable semantic search</label>
+                  <p class="ocr-detail" id="semantic-detail">Checking the optional component…</p>
+                  <p class="ocr-detail"><button class="button secondary" type="button" id="semantic-cancel" hidden>Cancel semantic setup</button></p>
+                  <p class="ocr-detail"><button class="button secondary" type="button" id="semantic-remove" hidden>Remove semantic data and component</button></p>
+                </div>
+              </article>
+
+              <article class="feature-card">
+                <div class="feature-head">
+                  <div>
+                    <h3>Result reranking</h3>
+                    <p class="panel-copy">Optional local multilingual refinement for a short list of results.</p>
+                  </div>
+                  <span class="status" id="reranker-status">Loading</span>
+                </div>
+                <div class="ocr-setting">
+                  <label><input type="checkbox" id="reranker-enabled"> Enable result reranking</label>
+                  <p class="ocr-detail" id="reranker-detail">Checking the optional component…</p>
+                  <p class="ocr-detail"><button class="button secondary" type="button" id="reranker-cancel" hidden>Cancel reranker setup</button></p>
+                  <p class="ocr-detail"><button class="button secondary" type="button" id="reranker-remove" hidden>Remove reranker component</button></p>
+                </div>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <div class="savebar" id="savebar" role="status" aria-live="polite">
+        <p id="save-note">Changes are validated before saving. Storage cleanup runs in the background after the new selection has synchronized successfully.</p>
+        <div class="actions">
+          <button class="button secondary" type="button" id="save-button">Save changes</button>
+          <button class="button primary" type="button" id="save-sync-button" disabled title="Select documentation or disable retention to clean local data">Save and synchronize</button>
+        </div>
+      </div>
+    </form>
+  </main>
+  <dialog id="review-dialog" aria-labelledby="review-dialog-title">
+    <div class="dialog-header">
+      <h2 id="review-dialog-title">Review changes before saving</h2>
+      <p>The server validates the new configuration before replacing the active settings. Destructive cleanup still requires a separate confirmation.</p>
+    </div>
+    <div class="dialog-fields">
+      <ul class="review" id="review-list"></ul>
+    </div>
+    <div class="dialog-actions">
+      <button class="button secondary" type="button" id="cancel-review-button">Cancel</button>
+      <button class="button primary" type="button" id="confirm-review-button">Confirm save</button>
+    </div>
+  </dialog>
+  <dialog id="project-dialog" aria-labelledby="project-dialog-title">
+    <form id="project-create-form">
+      <div class="dialog-header">
+        <h2 id="project-dialog-title">Add project</h2>
+        <p>Create an isolated project corpus. Source documents remain in the folder you choose.</p>
+      </div>
+      <div class="dialog-fields">
+        <div class="dialog-field">
+          <label for="project-name-input">Project name</label>
+          <input id="project-name-input" name="name" maxlength="120" autocomplete="off" required placeholder="Example: Customer Portal">
+        </div>
+        <div class="dialog-field">
+          <label for="project-id-input">Project ID</label>
+          <input id="project-id-input" name="project_id" maxlength="63" pattern="[a-z0-9][a-z0-9_-]{1,62}" autocomplete="off" required placeholder="customer-portal">
+          <small>Used by MCP tools. Lowercase letters, numbers, hyphens, and underscores only.</small>
+        </div>
+        <div class="dialog-field">
+          <label for="project-path-input">Documentation folder</label>
+          <div class="path-control">
+            <input id="project-path-input" name="documents_path" maxlength="4096" autocomplete="off" required>
+            <button class="button secondary" type="button" id="browse-new-project-path">Browse…</button>
+          </div>
+          <small id="project-path-help">A managed folder is suggested. You may choose another local folder accessible to the MCP runtime.</small>
+        </div>
+        <div class="dialog-field">
+          <label for="project-language-input">Default document language</label>
+          <select id="project-language-input" name="language">
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="pt">Portuguese</option>
+          </select>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button class="button secondary" type="button" id="cancel-project-button">Cancel</button>
+        <button class="button primary" type="submit" id="create-project-button">Create project</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog class="folder-dialog" id="folder-dialog" aria-labelledby="folder-dialog-title">
+    <div class="dialog-header">
+      <h2 id="folder-dialog-title">Choose documentation folder</h2>
+      <p>Browse folders accessible to the MCP runtime. Nothing is moved or deleted.</p>
+    </div>
+    <div class="folder-browser">
+      <div class="folder-locations" id="folder-locations" aria-label="Available locations"></div>
+      <div class="folder-path-line">
+        <input id="folder-path-input" maxlength="4096" autocomplete="off" spellcheck="false" aria-label="Folder path">
+        <button class="button secondary" type="button" id="folder-go-button">Go</button>
+      </div>
+      <div class="folder-list" id="folder-list" aria-live="polite"><div class="folder-empty">Loading folders…</div></div>
+      <p class="folder-selection-note" id="folder-selection-note"></p>
+    </div>
+    <div class="dialog-actions">
+      <button class="button secondary" type="button" id="cancel-folder-button">Cancel</button>
+      <button class="button primary" type="button" id="select-folder-button">Select this folder</button>
+    </div>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const token = document.querySelector('meta[name="helix-dashboard-token"]').content;
+    let dashboardState = null;
+    let busy = false;
+    let configurationDirty = false;
+    let pendingSaveSync = false;
+    let lastApplicationResult = null;
+    const $ = (id) => document.getElementById(id);
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"]/g, (character) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[character]));
+    const statusText = {ready:'Ready', ok:'Healthy', running:'Running', starting:'Starting', stopping:'Stopping', installing:'Installing', indexing:'Indexing', reindex_required:'Reindex required', update_required:'Component update required', incompatible:'Incompatible component', degraded:'Degraded', pending:'Queued', waiting:'Waiting', interrupted:'Interrupted', error:'Errors', cancelled:'Cancelled', archived:'Archived', disabled:'Disabled', success:'Updated', updated:'Updated', current:'Updated', available:'Update available', unknown:'Not checked', not_started:'Not indexed', not_configured:'Not configured', not_installed:'Not installed'};
+    const phaseText = {preparing:'Preparing', downloading:'Downloading and indexing', discovering:'Discovering and indexing', cleaning_up:'Cleaning up unselected versions', finishing:'Finishing'};
+    const dashboardTabs = [...document.querySelectorAll('[data-dashboard-tab]')];
+
+    function activateDashboardTab(name, focus = false) {
+      const selected = dashboardTabs.find((button) => button.dataset.dashboardTab === name) || dashboardTabs[0];
+      dashboardTabs.forEach((button) => {
+        const active = button === selected;
+        button.setAttribute('aria-selected', String(active));
+        button.tabIndex = active ? 0 : -1;
+        $(button.getAttribute('aria-controls')).hidden = !active;
+      });
+      try { sessionStorage.setItem('helix-dashboard-tab', selected.dataset.dashboardTab); } catch (_) {}
+      try { history.replaceState(null, '', `#${selected.dataset.dashboardTab}`); } catch (_) {}
+      if (focus) selected.focus();
+    }
+
+    dashboardTabs.forEach((button, index) => {
+      button.addEventListener('click', () => activateDashboardTab(button.dataset.dashboardTab));
+      button.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        let target = index;
+        if (event.key === 'ArrowLeft') target = (index - 1 + dashboardTabs.length) % dashboardTabs.length;
+        if (event.key === 'ArrowRight') target = (index + 1) % dashboardTabs.length;
+        if (event.key === 'Home') target = 0;
+        if (event.key === 'End') target = dashboardTabs.length - 1;
+        activateDashboardTab(dashboardTabs[target].dataset.dashboardTab, true);
+      });
+    });
+    let initialTab = 'documentation';
+    try { initialTab = sessionStorage.getItem('helix-dashboard-tab') || initialTab; } catch (_) {}
+    if (dashboardTabs.some((button) => `#${button.dataset.dashboardTab}` === location.hash)) {
+      initialTab = location.hash.slice(1);
+    }
+    activateDashboardTab(initialTab);
+
+    async function api(path, options = {}) {
+      const headers = {'X-Helix-Dashboard-Token': token, ...(options.headers || {})};
+      if (options.method === 'POST') {
+        headers['Content-Type'] = 'application/json';
+      }
+      const response = await fetch(path, {...options, headers});
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || `Error HTTP ${response.status}`);
+      return body;
+    }
+
+    function showToast(message, error = false) {
+      const toast = $('toast');
+      toast.textContent = message;
+      toast.className = `toast show${error ? ' error' : ''}`;
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.className = 'toast', 4200);
+    }
+
+    function setBusy(value) {
+      busy = value;
+      updateActionAvailability();
+    }
+
+    function markConfigurationDirty(section = 'documentation') {
+      configurationDirty = true;
+      const tab = dashboardTabs.find((button) => button.dataset.dashboardTab === section);
+      if (tab) {
+        tab.classList.add('dirty');
+        tab.setAttribute('aria-label', `${tab.dataset.label} — unsaved changes`);
+      }
+      updateActionAvailability();
+    }
+
+    function clearConfigurationDirty() {
+      configurationDirty = false;
+      pendingSaveSync = false;
+      dashboardTabs.forEach((tab) => {
+        tab.classList.remove('dirty');
+        tab.setAttribute('aria-label', tab.dataset.label);
+      });
+    }
+
+    function requireSavedConfiguration(checkbox = null) {
+      if (!configurationDirty) return false;
+      if (checkbox) checkbox.checked = !checkbox.checked;
+      showToast('Save or discard the pending documentation changes before managing optional components.', true);
+      return true;
+    }
+
+    function hasProductSelection() {
+      return Boolean(document.querySelector('[data-version-product]:checked'));
+    }
+
+    function updateActionAvailability() {
+      document.querySelectorAll('button').forEach((button) => button.disabled = busy);
+      const official = dashboardState?.sync?.official;
+      const syncActive = ['pending', 'running'].includes(official?.automation_status);
+      const cleanupOnly = !$('retain-versions').checked && (official?.indexed_documents || 0) > 0;
+      const canSynchronize = !busy && !syncActive && (hasProductSelection() || cleanupOnly);
+      $('save-button').disabled = busy || !configurationDirty;
+      $('save-sync-button').disabled = !configurationDirty || !canSynchronize;
+      $('save-sync-button').title = configurationDirty && canSynchronize ? '' : !configurationDirty ? 'No unsaved changes' : 'Select documentation or disable retention to clean local data';
+      $('sync-button').disabled = !canSynchronize;
+      $('sync-button').title = canSynchronize ? '' : 'Select documentation or disable retention to clean local data';
+      const updateOperation = dashboardState?.dashboard_update;
+      const updating = ['pending', 'waiting_for_sync', 'running'].includes(updateOperation?.status);
+      const updateAvailable = dashboardState?.update?.status === 'available';
+      $('check-update-button').disabled = busy || updating;
+      $('install-update-button').hidden = !updateAvailable && !updating;
+      const managed = dashboardState?.client_integrations?.transactional_updates;
+      $('install-update-button').disabled = busy || updating || !updateAvailable || !managed;
+      $('install-update-button').title = !managed ? 'Run a native installer to enable managed updates' : syncActive ? 'The update will wait for synchronization to finish' : '';
+      $('cancel-sync-button').hidden = !syncActive;
+      $('cancel-sync-button').disabled = busy || !syncActive || official?.cancellation_requested;
+      $('cancel-sync-button').textContent = official?.cancellation_requested ? 'Stopping safely…' : 'Cancel safely';
+      const semanticSetupBusy = ['installing', 'indexing'].includes(dashboardState?.semantic?.status);
+      $('semantic-cancel').disabled = busy || !semanticSetupBusy;
+      $('semantic-remove').disabled = busy || semanticSetupBusy || dashboardState?.semantic?.enabled;
+      const rerankerSetupBusy = ['installing', 'starting', 'stopping'].includes(dashboardState?.reranker?.status);
+      const rerankerSetupCancelable = ['installing', 'starting'].includes(dashboardState?.reranker?.status);
+      $('reranker-cancel').disabled = busy || !rerankerSetupCancelable;
+      $('reranker-remove').disabled = busy || rerankerSetupBusy || dashboardState?.reranker?.enabled;
+      $('folder-go-button').disabled = busy || folderLoading;
+      $('select-folder-button').disabled = busy || folderLoading || !folderCurrentSelectable;
+      document.querySelectorAll('[data-sync-project]').forEach((button) => {
+        const project = dashboardState?.projects?.find((item) => item.project_id === button.dataset.syncProject);
+        const syncActive = ['pending', 'running'].includes(project?.sync?.status);
+        const projectCanIndex = Boolean(project?.sync?.available);
+        button.disabled = busy || configurationDirty || syncActive || !projectCanIndex;
+        button.title = configurationDirty
+          ? 'Save the pending project changes before indexing'
+          : syncActive
+            ? 'Project indexing is already active'
+            : projectCanIndex ? '' : 'This project must be active and declare a source manifest';
+      });
+    }
+
+    function formatDate(value) {
+      if (!value) return 'No next run scheduled';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('en-GB', {dateStyle:'medium', timeStyle:'short'}).format(date);
+    }
+
+    function formatBytes(value) {
+      const bytes = Number(value || 0);
+      if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+      if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    }
+
+    function formatDuration(seconds) {
+      if (!Number.isFinite(seconds)) return 'time unavailable';
+      const rounded = Math.max(0, Math.round(seconds));
+      const hours = Math.floor(rounded / 3600);
+      const minutes = Math.floor((rounded % 3600) / 60);
+      const remainder = rounded % 60;
+      if (hours) return `${hours}h ${minutes}m`;
+      if (minutes) return `${minutes}m ${remainder}s`;
+      return `${remainder}s`;
+    }
+
+    function formatActivity(value) {
+      if (!value) return 'no recorded activity';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'activity time unavailable';
+      const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+      return seconds < 5 ? 'active now' : `last activity ${formatDuration(seconds)} ago`;
+    }
+
+    function slugifyProjectId(value) {
+      const normalized = String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+      let result = normalized.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^[-_]+|[-_]+$/g, '').slice(0, 63);
+      if (result.length === 1) result += '-project';
+      return result;
+    }
+
+    function suggestedProjectPath(projectId) {
+      const root = dashboardState?.project_documentation?.default_root || '';
+      const separator = root.includes('\\') && !root.includes('/') ? '\\' : '/';
+      return `${root.replace(/[\\/]+$/, '')}${separator}${projectId || 'new-project'}${separator}docs`;
+    }
+
+    let projectIdCustomized = false;
+    let projectPathCustomized = false;
+    let folderTargetInput = null;
+    let folderCurrentPath = '';
+    let folderCurrentSelectable = false;
+    let folderLoading = false;
+
+    function openProjectDialog() {
+      if (busy) return;
+      if (configurationDirty) {
+        showToast('Save or reload your current changes before adding a project.', true);
+        return;
+      }
+      $('project-create-form').reset();
+      projectIdCustomized = false;
+      projectPathCustomized = false;
+      $('project-id-input').value = '';
+      $('project-path-input').value = suggestedProjectPath('new-project');
+      $('project-dialog').showModal();
+      $('project-name-input').focus();
+    }
+
+    async function browseFolder(path) {
+      if (folderLoading) return;
+      folderLoading = true;
+      folderCurrentSelectable = false;
+      $('folder-go-button').disabled = true;
+      $('select-folder-button').disabled = true;
+      $('folder-list').innerHTML = '<div class="folder-empty">Loading folders…</div>';
+      try {
+        const result = await api('/api/directories/browse', {method:'POST', body:JSON.stringify({path:path || null})});
+        folderCurrentPath = result.path;
+        folderCurrentSelectable = Boolean(result.selectable);
+        $('folder-path-input').value = result.path;
+        $('folder-locations').innerHTML = result.roots.map((root) =>
+          `<button class="mini-button folder-location" type="button" data-folder-location="${escapeHtml(root.path)}">${escapeHtml(root.label)}</button>`
+        ).join('');
+        const entries = [];
+        if (result.parent) entries.push(`<button class="folder-entry up" type="button" data-folder-entry="${escapeHtml(result.parent)}">Parent folder</button>`);
+        entries.push(...result.entries.map((entry) =>
+          `<button class="folder-entry" type="button" data-folder-entry="${escapeHtml(entry.path)}">${escapeHtml(entry.name)}</button>`
+        ));
+        const files = result.files || [];
+        entries.push(...files.map((file) => {
+          const size = Number.isFinite(file.size_bytes) ? formatBytes(file.size_bytes) : 'size unavailable';
+          const support = file.support_reason || (file.supported ? 'indexable' : 'not supported');
+          return `<div class="folder-file ${file.supported ? 'supported' : 'unsupported'}" title="${escapeHtml(support)}"><span class="folder-file-name">${escapeHtml(file.name)}</span><span class="folder-file-meta">${escapeHtml(size)} · ${escapeHtml(support)}</span></div>`;
+        }));
+        $('folder-list').innerHTML = entries.length ? entries.join('') : '<div class="folder-empty">This folder is empty.</div>';
+        const supportedFiles = files.filter((file) => file.supported).length;
+        const otherFiles = files.length - supportedFiles;
+        const fileSummary = `${supportedFiles} indexable file${supportedFiles === 1 ? '' : 's'}${otherFiles ? ` · ${otherFiles} other file${otherFiles === 1 ? '' : 's'}` : ''}`;
+        const instruction = result.truncated
+          ? `${fileSummary} shown within the first 500 entries. Indexing includes supported files in subfolders.`
+          : `${fileSummary} in this folder. Indexing also includes supported files in subfolders.`;
+        $('folder-selection-note').textContent = result.selection_error ? `${result.selection_error}. ${instruction}` : `${instruction} Select this folder or open a subfolder.`;
+        $('folder-selection-note').className = `folder-selection-note${result.selection_error ? ' error' : ''}`;
+        $('select-folder-button').disabled = !folderCurrentSelectable;
+        document.querySelectorAll('[data-folder-location], [data-folder-entry]').forEach((button) => {
+          button.addEventListener('click', () => browseFolder(button.dataset.folderLocation || button.dataset.folderEntry));
+        });
+      } catch (error) {
+        folderCurrentSelectable = false;
+        $('folder-list').innerHTML = '<div class="folder-empty">The folder could not be opened.</div>';
+        $('folder-selection-note').textContent = error.message;
+        $('folder-selection-note').className = 'folder-selection-note error';
+      } finally {
+        folderLoading = false;
+        $('folder-go-button').disabled = false;
+      }
+    }
+
+    function openFolderBrowser(input) {
+      if (busy || !input) return;
+      folderTargetInput = input;
+      folderCurrentPath = '';
+      folderCurrentSelectable = false;
+      $('folder-dialog').showModal();
+      browseFolder(input.value.trim());
+    }
+
+    async function removeProject(projectId) {
+      if (busy) return;
+      if (configurationDirty) {
+        showToast('Save or reload your current changes before removing a project.', true);
+        return;
+      }
+      const project = dashboardState?.projects?.find((item) => item.project_id === projectId);
+      if (!project) return;
+      const confirmed = window.confirm(
+        `Remove ${project.name}?\n\nIts registration and derived search index will be removed. The source documents in ${project.documents_path} will not be deleted.`
+      );
+      if (!confirmed) return;
+      setBusy(true);
+      try {
+        const state = await api('/api/projects/remove', {method:'POST', body:JSON.stringify({project_id:projectId})});
+        render(state);
+        showToast(`${project.name} removed. Its source documents were preserved.`);
+      } catch (error) {
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function syncProjectNow(projectId) {
+      if (busy) return;
+      if (configurationDirty) {
+        showToast('Save the pending project changes before indexing its documents.', true);
+        return;
+      }
+      const project = dashboardState?.projects?.find((item) => item.project_id === projectId);
+      if (!project) return;
+      setBusy(true);
+      try {
+        const result = await api('/api/projects/sync', {
+          method:'POST',
+          body:JSON.stringify({project_id:projectId}),
+        });
+        await loadState(true);
+        const message = result.status === 'already_running'
+          ? `${project.name} is already being indexed.`
+          : result.status === 'already_pending'
+            ? `${project.name} is already queued for indexing.`
+            : `${project.name} indexing queued. Files remain in their local folder.`;
+        showToast(message);
+        setTimeout(() => loadState(true), 1200);
+      } catch (error) {
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function renderProducts(products) {
+      $('products').innerHTML = products.map((product) => {
+        const available = product.available_versions || [];
+        const selected = new Set(product.selected_versions || []);
+        const indexed = new Set(product.indexed_versions || []);
+        const enabled = available.length > 0;
+        const rolling = available.includes('current');
+        const versions = available.map((version, index) => `
+          <label class="version-choice ${indexed.has(version) ? 'indexed' : ''}">
+            <input type="checkbox" data-version-product="${escapeHtml(product.product_id)}" value="${escapeHtml(version)}" ${selected.has(version) ? 'checked' : ''}>
+            ${version === 'current' ? 'Current · SaaS' : `${escapeHtml(version)}${index === 0 ? ' · latest' : ''}`}${indexed.has(version) ? ' · indexed' : ''}
+          </label>`).join('');
+        return `<article class="product-card ${selected.size ? 'selected' : ''} ${enabled ? '' : 'unavailable'}" data-product-card="${escapeHtml(product.product_id)}">
+          <div class="product-title">
+            <input type="checkbox" data-product="${escapeHtml(product.product_id)}" ${selected.size ? 'checked' : ''} ${enabled ? '' : 'disabled'} aria-label="Select ${escapeHtml(product.name)}">
+            <div><span class="product-name">${escapeHtml(product.name)}</span><span class="product-id">${escapeHtml(product.product_id)}</span></div>
+          </div>
+          ${enabled ? `<div class="version-list">${versions}</div>${rolling ? '<p class="product-note">Continuously updated by BMC; separate historical documentation spaces are not available.</p>' : ''}` : '<div class="soon">No versions available in this release</div>'}
+        </article>`;
+      }).join('');
+      document.querySelectorAll('[data-product]').forEach((checkbox) => checkbox.addEventListener('change', () => {
+        const versions = [...document.querySelectorAll(`[data-version-product="${CSS.escape(checkbox.dataset.product)}"]`)];
+        versions.forEach((item, index) => item.checked = checkbox.checked && (index === 0 || item.checked));
+        checkbox.closest('.product-card').classList.toggle('selected', checkbox.checked);
+        markConfigurationDirty('documentation');
+        updateActionAvailability();
+      }));
+      document.querySelectorAll('[data-version-product]').forEach((checkbox) => checkbox.addEventListener('change', () => {
+        const id = checkbox.dataset.versionProduct;
+        const any = [...document.querySelectorAll(`[data-version-product="${CSS.escape(id)}"]`)].some((item) => item.checked);
+        document.querySelector(`[data-product="${CSS.escape(id)}"]`).checked = any;
+        checkbox.closest('.product-card').classList.toggle('selected', any);
+        markConfigurationDirty('documentation');
+        updateActionAvailability();
+      }));
+      updateActionAvailability();
+    }
+
+    function renderProjects(projects, products) {
+      if (!projects.length) {
+        $('projects').innerHTML = `<div class="project-empty">
+          <div><strong>No projects configured</strong><p>Add your first project and choose where its private documentation is stored.</p></div>
+          <button class="button secondary" type="button" data-add-first-project>Add project</button>
+        </div>`;
+        document.querySelector('[data-add-first-project]').addEventListener('click', openProjectDialog);
+        return;
+      }
+      $('projects').innerHTML = projects.map((project) => {
+        const configured = project.products || {};
+        const sync = project.sync || {};
+        const detected = Number.isInteger(sync.detected_files)
+          ? `${new Intl.NumberFormat('en-GB').format(sync.detected_files)} file${sync.detected_files === 1 ? '' : 's'} detected`
+          : 'Files not scanned yet';
+        const indexed = `${new Intl.NumberFormat('en-GB').format(sync.indexed_documents || 0)} indexed · ${new Intl.NumberFormat('en-GB').format(sync.indexed_chunks || 0)} chunks`;
+        const syncLabel = sync.status === 'ready' ? 'Up to date' : sync.status === 'running' ? 'Indexing' : sync.status === 'waiting' ? 'Changes detected' : statusText[sync.status] || sync.status || 'Not indexed';
+        const lastFinished = sync.finished_at ? ` Last completed ${formatDate(sync.finished_at)}.` : '';
+        const syncDetail = sync.status === 'running'
+          ? `Reading and indexing the selected folder now. ${indexed}.`
+          : sync.status === 'pending'
+            ? 'Immediate indexing is queued and will start as soon as the local maintenance worker is available.'
+            : sync.status === 'waiting'
+              ? 'A folder change was detected. Automatic indexing will start after the files remain stable.'
+              : sync.status === 'error'
+                ? `The last indexing run failed${sync.error ? `: ${sync.error}` : '.'}`
+                : sync.status === 'interrupted'
+                  ? 'The previous indexing process stopped before completion. Index the folder again to recover.'
+                : ['archived', 'disabled'].includes(sync.status)
+                  ? 'Activate this project before indexing its documentation.'
+                  : !sync.available
+                    ? 'Add a source manifest to this active project before indexing its documentation.'
+                  : sync.status === 'ready'
+                    ? `The search index matches the last completed scan.${lastFinished}`
+                    : sync.automatic_sync
+                      ? 'Automatic monitoring is active. Add a supported file or index the folder now.'
+                      : 'Index this folder now to make its supported documents searchable.';
+        const syncButtonLabel = sync.status === 'running' ? 'Indexing…' : sync.status === 'pending' ? 'Queued…' : 'Index documents now';
+        const rows = products.map((product) => {
+          const productId = product.product_id;
+          const current = configured[productId] || null;
+          const available = product.available_versions || [];
+          const choices = current && !available.includes(current) ? [current, ...available] : available;
+          const selectedVersion = current || product.selected_versions?.[0] || choices[0] || '';
+          const enabled = Boolean(current);
+          const options = choices.length
+            ? choices.map((version) => `<option value="${escapeHtml(version)}" ${version === selectedVersion ? 'selected' : ''}>${escapeHtml(version)}</option>`).join('')
+            : '<option value="">Unavailable</option>';
+          return `<div class="project-row ${enabled ? 'selected' : ''}">
+            <label for="project-toggle-${escapeHtml(project.project_id)}-${escapeHtml(productId)}">
+              <input id="project-toggle-${escapeHtml(project.project_id)}-${escapeHtml(productId)}" type="checkbox" data-project-product-enabled data-project="${escapeHtml(project.project_id)}" data-project-product="${escapeHtml(productId)}" ${enabled ? 'checked' : ''} ${choices.length ? '' : 'disabled'}>
+              <span><span class="project-product-name">${escapeHtml(product.name)}</span><span class="project-product-id">${escapeHtml(productId)}</span></span>
+            </label>
+            <select aria-label="${escapeHtml(product.name)} version for ${escapeHtml(project.name)}" data-project-version data-project="${escapeHtml(project.project_id)}" data-project-product="${escapeHtml(productId)}" ${enabled && choices.length ? '' : 'disabled'}>
+              ${options}
+            </select></div>`;
+        }).join('');
+        return `<article class="project" data-project-card="${escapeHtml(project.project_id)}">
+          <div class="project-head">
+            <div class="project-identity"><span class="project-name">${escapeHtml(project.name)}</span><span class="project-id">${escapeHtml(project.project_id)}</span></div>
+            <div class="project-head-actions"><span class="project-status">${escapeHtml(project.status)}</span><button class="mini-button" type="button" data-remove-project="${escapeHtml(project.project_id)}">Remove</button></div>
+          </div>
+          <div class="project-body">
+            <div class="project-path">
+              <label for="project-path-${escapeHtml(project.project_id)}">Documentation folder<span>${project.managed_documents_path ? 'Managed by this installation' : 'External authorized folder'}</span></label>
+              <div class="path-control">
+                <input id="project-path-${escapeHtml(project.project_id)}" type="text" data-project-path data-project="${escapeHtml(project.project_id)}" value="${escapeHtml(project.documents_path)}" autocomplete="off" spellcheck="false">
+                <button class="button secondary" type="button" data-browse-project-path="${escapeHtml(project.project_id)}">Browse…</button>
+              </div>
+            </div>
+            <div class="project-index">
+              <div class="project-index-copy">
+                <div class="project-index-head"><span class="status ${escapeHtml(sync.status || 'not_started')}">${escapeHtml(syncLabel)}</span><strong>${escapeHtml(detected)} · ${escapeHtml(indexed)}</strong></div>
+                <p class="project-index-detail">${escapeHtml(syncDetail)}</p>
+              </div>
+              <button class="button secondary" type="button" data-sync-project="${escapeHtml(project.project_id)}">${escapeHtml(syncButtonLabel)}</button>
+            </div>
+            <div class="project-versions">${rows || '<p class="empty">No associated products.</p>'}</div>
+          </div>
+        </article>`;
+      }).join('');
+      document.querySelectorAll('[data-project-product-enabled]').forEach((checkbox) => {
+        checkbox.addEventListener('change', () => {
+          const row = checkbox.closest('.project-row');
+          row.classList.toggle('selected', checkbox.checked);
+          row.querySelector('[data-project-version]').disabled = !checkbox.checked;
+          markConfigurationDirty('documentation');
+        });
+      });
+      document.querySelectorAll('[data-project-version]').forEach((input) => {
+        input.addEventListener('change', () => markConfigurationDirty('documentation'));
+      });
+      document.querySelectorAll('[data-project-path]').forEach((input) => {
+        input.addEventListener('input', () => markConfigurationDirty('documentation'));
+      });
+      document.querySelectorAll('[data-remove-project]').forEach((button) => {
+        button.addEventListener('click', () => removeProject(button.dataset.removeProject));
+      });
+      document.querySelectorAll('[data-browse-project-path]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const input = document.querySelector(`[data-project-path][data-project="${CSS.escape(button.dataset.browseProjectPath)}"]`);
+          if (input) openFolderBrowser(input);
+        });
+      });
+      document.querySelectorAll('[data-sync-project]').forEach((button) => {
+        button.addEventListener('click', () => syncProjectNow(button.dataset.syncProject));
+      });
+      updateActionAvailability();
+    }
+
+    function renderRuntimeConnections(integrations, dashboardRuntime, application = null) {
+      const openclaw = integrations?.openclaw || {};
+      const connected = Boolean(openclaw.connected);
+      const managed = Boolean(dashboardRuntime?.enabled);
+      const active = Boolean(dashboardRuntime?.active);
+      const managerNames = {
+        systemd_user: 'systemd user service',
+        windows_startup: 'Windows startup supervisor',
+        detached: 'Detached fallback',
+        unmanaged: 'Manual process',
+      };
+      const dashboardBadge = active
+        ? managed ? 'Managed and running' : 'Running manually'
+        : managed ? 'Stopped' : 'Automatic startup unavailable';
+      const dashboardDescription = dashboardRuntime?.error
+        ? `Dashboard manager error: ${dashboardRuntime.error}`
+        : managed
+          ? dashboardRuntime.process_managed
+            ? `${managerNames[dashboardRuntime.manager] || dashboardRuntime.manager} is enabled on port ${dashboardRuntime.port}. Failed processes restart automatically.`
+            : `${managerNames[dashboardRuntime.manager] || dashboardRuntime.manager} is enabled on port ${dashboardRuntime.port} and is ready to take over this migrated process.`
+          : `${managerNames[dashboardRuntime?.manager] || 'Manual process'} on port ${dashboardRuntime?.port || '—'}. Automatic startup is not available in this environment.`;
+      const reloadFailed = application?.status === 'reload_failed';
+      const openclawDescription = reloadFailed
+        ? 'Configuration saved, but the automatic reload failed. Reload OpenClaw manually before the next MCP request.'
+        : application?.status === 'applied'
+          ? 'Configuration applied. OpenClaw will start Knowledge with the new settings on the next MCP request.'
+          : openclaw.description || 'OpenClaw was not detected during installation.';
+      $('openclaw-integration').innerHTML = `<article class="connection-card ${reloadFailed ? 'warning' : connected ? 'connected' : ''}">
+        <div class="connection-head"><span class="connection-name">${escapeHtml(openclaw.name || 'OpenClaw')}</span><span class="connection-badge ${reloadFailed ? 'warning' : connected ? 'connected' : ''}">${reloadFailed ? 'Reload required' : connected ? 'Connected' : 'Not connected'}</span></div>
+        <p class="connection-description">${escapeHtml(openclawDescription)}</p>
+      </article>
+      <article class="connection-card ${active ? 'connected' : ''}">
+        <div class="connection-head"><span class="connection-name">Dashboard service</span><span class="connection-badge ${active ? 'connected' : ''}">${dashboardBadge}</span></div>
+        <p class="connection-description">${escapeHtml(dashboardDescription)}</p>
+      </article>`;
+    }
+
+    function render(state) {
+      dashboardState = state;
+      if (state.application) lastApplicationResult = state.application;
+      clearConfigurationDirty();
+      $('server-version').textContent = `Server ${state.server_version}`;
+      const selectableProducts = state.products.filter((product) => product.available_versions?.length).length;
+      const selectableVersions = state.products.reduce((total, product) => total + (product.available_versions?.length || 0), 0);
+      const catalogRevision = state.catalog?.effective_revision;
+      $('catalog-summary').textContent = `${selectableProducts} products · ${selectableVersions} options${catalogRevision != null ? ` · catalog r${catalogRevision}` : ''}`;
+      $('catalog-summary').title = state.catalog?.error || (state.catalog?.checked_at ? `Last checked ${formatDate(state.catalog.checked_at)}` : 'Catalog check pending');
+      renderProducts(state.products);
+      renderProjects(state.projects, state.products);
+      const application = state.application || lastApplicationResult;
+      renderRuntimeConnections(state.client_integrations, state.dashboard_runtime, application);
+      if (application?.status === 'applied') {
+        $('save-note').textContent = 'Configuration saved and applied to OpenClaw. Knowledge will reconnect on the next MCP request.';
+      } else if (application?.status === 'reload_failed') {
+        $('save-note').textContent = `Configuration saved, but OpenClaw could not be reloaded (${application.error_code || 'OPENCLAW_INTEGRATION_ERROR'}). Reload it manually to apply the new settings.`;
+      } else if (application?.status === 'restart_required') {
+        $('save-note').textContent = 'Configuration saved. Reconnect your MCP client to apply the new settings.';
+      } else if (application?.status === 'unchanged') {
+        $('save-note').textContent = 'No effective configuration change was detected; the MCP client was not reloaded.';
+      } else if (state.client_integrations?.active_client === 'openclaw') {
+        $('save-note').textContent = 'Changes are validated before saving. Connected OpenClaw installations reload automatically after a successful save.';
+      } else {
+        $('save-note').textContent = 'Changes are validated before saving. Reconnect a standalone MCP client afterward to apply them.';
+      }
+      $('automatic-sync').checked = state.settings.automatic_sync;
+      $('bootstrap-empty').checked = state.settings.bootstrap_on_empty;
+      $('retain-versions').checked = state.settings.retain_unselected_versions;
+      $('interval-hours').value = state.settings.interval_hours;
+
+      const ocr = state.ocr || {};
+      $('ocr-enabled').checked = Boolean(ocr.enabled);
+      $('ocr-enabled').disabled = ocr.status === 'installing';
+      $('ocr-status').textContent = ocr.enabled ? 'Enabled' : ocr.installed && ocr.status === 'ready' ? 'Installed' : statusText[ocr.status] || ocr.status;
+      $('ocr-status').className = `status ${ocr.status === 'installing' ? 'running' : ocr.status === 'error' ? 'error' : ocr.installed ? 'ready' : ''}`;
+      $('ocr-detail').textContent = ocr.status === 'installing'
+        ? 'Installing and validating the isolated OCR component. This page can remain open.'
+        : ocr.error
+          ? `Installation failed: ${ocr.error}`
+          : ocr.installed
+            ? `${formatBytes(ocr.installed_bytes)} installed locally. Disabling OCR keeps the component available.`
+            : `The first activation installs approximately ${formatBytes(ocr.estimated_install_bytes)}. Normal PDFs and official BMC HTML are unaffected.`;
+
+      const semantic = state.semantic || {};
+      const semanticBusy = ['installing', 'indexing'].includes(semantic.status);
+      $('semantic-enabled').checked = Boolean(semantic.enabled);
+      $('semantic-enabled').disabled = semanticBusy;
+      $('semantic-cancel').hidden = !semanticBusy;
+      $('semantic-cancel').disabled = !semanticBusy;
+      $('semantic-remove').hidden = !semantic.installed;
+      $('semantic-remove').disabled = semanticBusy || semantic.enabled;
+      $('semantic-status').textContent = semantic.enabled ? 'Enabled' : semantic.installed && semantic.status === 'ready' ? 'Installed' : statusText[semantic.status] || semantic.status;
+      $('semantic-status').className = `status ${semanticBusy ? 'running' : ['error', 'degraded', 'incompatible'].includes(semantic.status) ? 'error' : ['reindex_required', 'update_required'].includes(semantic.status) ? 'reindex_required' : semantic.installed ? 'ready' : ''}`;
+      $('semantic-detail').textContent = semantic.status === 'installing'
+        ? `Installing dependencies, downloading the pinned BGE-M3 model, and validating the component. Plan for approximately ${formatBytes(semantic.estimated_active_memory_bytes)} of RAM while enabled; vector creation can temporarily use more.`
+        : semantic.status === 'indexing'
+          ? `Creating vectors: ${new Intl.NumberFormat('en-GB').format(semantic.indexed_chunks || 0)} / ${new Intl.NumberFormat('en-GB').format(semantic.total_chunks || 0)} chunks.${semantic.chunks_per_second ? ` ${semantic.chunks_per_second.toFixed(2)} chunks/s · approximately ${formatDuration(semantic.estimated_seconds_remaining)} remaining.` : ''}`
+          : semantic.status === 'reindex_required'
+            ? semantic.error
+          : ['update_required', 'incompatible', 'degraded'].includes(semantic.status)
+            ? semantic.error
+          : semantic.error
+            ? `Semantic setup failed: ${semantic.error}`
+            : semantic.installed
+              ? semantic.enabled
+                ? `${formatBytes(semantic.installed_bytes)} component · ${formatBytes(semantic.vector_bytes)} vectors. Plan for approximately ${formatBytes(semantic.estimated_active_memory_bytes)} of RAM while enabled; vector creation can temporarily use more.`
+                : `${formatBytes(semantic.installed_bytes)} component · ${formatBytes(semantic.vector_bytes)} vectors retained. Semantic search is disabled and its model memory has been released.`
+              : `The first activation can use up to ${formatBytes(semantic.estimated_install_bytes)} plus vector storage. While enabled, plan for approximately ${formatBytes(semantic.estimated_active_memory_bytes)} of RAM; vector creation can temporarily use more. Lexical search remains available throughout.`;
+
+      const reranker = state.reranker || {};
+      const rerankerBusy = ['installing', 'starting', 'stopping'].includes(reranker.status);
+      const rerankerCancelable = ['installing', 'starting'].includes(reranker.status);
+      $('reranker-enabled').checked = Boolean(reranker.enabled);
+      $('reranker-enabled').disabled = rerankerBusy;
+      $('reranker-cancel').hidden = !rerankerCancelable;
+      $('reranker-cancel').disabled = !rerankerCancelable;
+      $('reranker-remove').hidden = !reranker.removable;
+      $('reranker-remove').disabled = rerankerBusy || reranker.enabled;
+      $('reranker-status').textContent = reranker.enabled && reranker.status === 'ready'
+        ? 'Enabled'
+        : reranker.installed && reranker.status === 'ready'
+          ? 'Installed'
+          : statusText[reranker.status] || reranker.status;
+      $('reranker-status').className = `status ${rerankerBusy ? 'running' : ['error', 'degraded', 'incompatible'].includes(reranker.status) ? 'error' : reranker.status === 'update_required' ? 'reindex_required' : reranker.installed ? 'ready' : ''}`;
+      $('reranker-detail').textContent = reranker.status === 'installing'
+        ? 'Installing isolated dependencies, downloading the pinned multilingual model, and validating the local service.'
+        : reranker.status === 'starting'
+          ? 'Loading the local multilingual model. Searches continue with the existing ranking until it is ready.'
+        : reranker.status === 'stopping'
+          ? 'Finishing the current model-loading step and releasing its memory safely.'
+        : ['update_required', 'incompatible', 'degraded'].includes(reranker.status)
+          ? reranker.error
+          : reranker.error
+            ? `Reranker setup failed: ${reranker.error}`
+            : reranker.installed
+              ? `${formatBytes(reranker.installed_bytes)} installed locally. While enabled, expect about 1.8 GB of RAM and hardware-dependent search latency. Disabling releases memory and keeps the files.`
+              : `Optional and disabled by default. The first activation can use up to ${formatBytes(reranker.estimated_install_bytes)} during setup (about 3.3 GB retained). It creates no vectors; the existing ranking remains the fallback.`;
+
+      const official = state.sync.official;
+      const configuredProductCount = Object.keys(official.configured_products).length;
+      $('first-run').hidden = configuredProductCount > 0 || official.indexed_documents > 0;
+      $('corpus-status').textContent = statusText[official.status] || official.status;
+      $('corpus-status').className = `metric-value status ${official.status}`;
+      $('corpus-detail').textContent = configuredProductCount ? `${configuredProductCount} products configured` : 'No products selected';
+      $('document-count').textContent = new Intl.NumberFormat('en-GB').format(official.indexed_documents);
+      $('chunk-count').textContent = `${new Intl.NumberFormat('en-GB').format(official.indexed_chunks)} chunks indexed`;
+      const updateOperation = state.dashboard_update;
+      const updating = ['pending', 'waiting_for_sync', 'running'].includes(updateOperation?.status);
+      const retention = updateOperation?.storage_retention || state.storage_retention;
+      const updateStatus = updating ? updateOperation.status : updateOperation?.status === 'error' ? 'error' : state.update.status;
+      $('update-status').textContent = updateOperation?.status === 'waiting_for_sync' ? 'Update queued' : updating ? 'Updating' : statusText[updateStatus] || updateStatus;
+      $('update-status').className = `metric-value status ${updateStatus}`;
+      $('update-detail').textContent = updating
+        ? updateOperation.status === 'waiting_for_sync'
+          ? `Waiting for synchronization before installing ${updateOperation.target_version}`
+          : `Installing ${updateOperation.target_version}`
+        : updateOperation?.status === 'error'
+          ? `Update to ${updateOperation.target_version} failed`
+          : updateOperation?.status === 'success' && retention?.status === 'error'
+              ? `Updated to ${updateOperation.target_version} · automatic cleanup needs attention`
+            : updateOperation?.status === 'success'
+              ? `Updated to ${updateOperation.target_version}`
+          : state.update.status === 'current'
+            ? `Updated to ${state.server_version}`
+          : state.update.latest_version
+            ? `Latest release ${state.update.latest_version}`
+            : 'Check pending';
+      $('install-update-button').textContent = state.update.latest_version ? `Install ${state.update.latest_version}` : 'Install update';
+
+      const syncStatus = official.automation_status || official.status;
+      const progress = official.progress;
+      $('sync-status').textContent = statusText[syncStatus] || syncStatus;
+      $('sync-status').className = `status ${syncStatus}`;
+      const currentSelection = progress?.current_product && progress?.current_version ? ` · ${progress.current_product} ${progress.current_version}` : '';
+      $('sync-copy').textContent = official.cancellation_requested
+          ? 'Stopping after the current document reaches a consistent state.'
+          : syncStatus === 'running'
+            ? `${phaseText[progress?.phase] || 'Synchronizing'}${currentSelection}.`
+            : syncStatus === 'cancelled'
+              ? 'The previous run was stopped safely. Indexed documents remain available.'
+              : !configuredProductCount
+                ? 'No official documentation is selected.'
+              : `Last status: ${statusText[syncStatus] || syncStatus}.`;
+      const determinate = ['running', 'cancelled'].includes(syncStatus) && Number.isFinite(progress?.percent);
+      $('progress-bar').className = `progress-bar ${syncStatus === 'running' && !determinate ? 'running' : ''}`;
+      $('progress-bar').style.width = determinate ? `${progress.percent}%` : syncStatus === 'ok' ? '100%' : '0';
+      if (determinate) $('progress-track').setAttribute('aria-valuenow', String(progress.percent));
+      else $('progress-track').removeAttribute('aria-valuenow');
+      const processed = progress?.processed_items ?? Object.values(official.result_counts || {}).reduce((total, count) => total + count, 0);
+      const estimate = progress?.estimated_total_items;
+      const itemProgress = estimate ? `${processed} of approximately ${estimate} items` : `${processed} items processed`;
+      $('progress-detail').textContent = syncStatus === 'running'
+        ? `${itemProgress} · ${formatDuration(official.duration_seconds)} elapsed · ${formatActivity(progress?.last_activity_at)}`
+        : official.duration_seconds != null
+          ? `Last run took ${formatDuration(official.duration_seconds)}.`
+          : 'No synchronization activity yet.';
+      $('sync-processed').textContent = new Intl.NumberFormat('en-GB').format(processed);
+      $('sync-documents').textContent = new Intl.NumberFormat('en-GB').format(official.indexed_documents);
+      $('sync-notices').textContent = official.notice_count;
+      $('sync-errors').textContent = official.error_count;
+      const versions = progress?.product_versions || [];
+      $('version-progress').hidden = !versions.length;
+      $('version-progress').innerHTML = versions.map((item) => `<div class="version-progress-row"><strong>${escapeHtml(item.product)} ${escapeHtml(item.version)}</strong><span>${new Intl.NumberFormat('en-GB').format(item.processed_items)} / ~${new Intl.NumberFormat('en-GB').format(item.estimated_total_items)}</span></div>`).join('');
+      $('next-run').textContent = configuredProductCount ? `Next run: ${formatDate(official.next_run_at)}` : 'Nothing will be downloaded until you save a selection.';
+      updateActionAvailability();
+    }
+
+    function payload() {
+      const products = {};
+      document.querySelectorAll('[data-product]:checked').forEach((product) => {
+        const versions = [...document.querySelectorAll(`[data-version-product="${CSS.escape(product.dataset.product)}"]:checked`)].map((item) => item.value);
+        if (versions.length) products[product.dataset.product] = versions;
+      });
+      const projects = {};
+      document.querySelectorAll('[data-project-product-enabled]').forEach((checkbox) => {
+        projects[checkbox.dataset.project] ||= {products:{}};
+        if (!checkbox.checked) return;
+        const select = checkbox.closest('.project-row').querySelector('[data-project-version]');
+        projects[checkbox.dataset.project].products[checkbox.dataset.projectProduct] = select.value;
+      });
+      document.querySelectorAll('[data-project-path]').forEach((input) => {
+        projects[input.dataset.project] ||= {products:{}};
+        projects[input.dataset.project].documents_path = input.value.trim();
+      });
+      return {
+        products,
+        automatic_sync: $('automatic-sync').checked,
+        bootstrap_on_empty: $('bootstrap-empty').checked,
+        interval_hours: Number($('interval-hours').value),
+        retain_unselected_versions: $('retain-versions').checked,
+        projects,
+      };
+    }
+
+    function openConfigurationReview(syncAfter) {
+      if (busy || !configurationDirty) return;
+      const form = $('configuration-form');
+      if (!form.reportValidity()) {
+        const invalid = form.querySelector(':invalid');
+        const panel = invalid?.closest('[data-dashboard-tab], .tab-panel');
+        if (panel?.id === 'settings-panel') activateDashboardTab('settings');
+        else if (panel) activateDashboardTab('documentation');
+        return;
+      }
+      const selection = payload();
+      const productCount = Object.keys(selection.products).length;
+      const versionCount = Object.values(selection.products).reduce((total, versions) => total + versions.length, 0);
+      const projectCount = Object.keys(selection.projects).length;
+      const changedTabs = dashboardTabs
+        .filter((tab) => tab.classList.contains('dirty'))
+        .map((tab) => tab.dataset.label);
+      $('review-list').innerHTML = `
+        <li>Sections changed: <strong>${escapeHtml(changedTabs.join(', ') || 'Configuration')}</strong></li>
+        <li>Official documentation: <strong>${productCount} product${productCount === 1 ? '' : 's'} · ${versionCount} version${versionCount === 1 ? '' : 's'}</strong></li>
+        <li>Project corpora: <strong>${projectCount} configured</strong></li>
+        <li>Maintenance: <strong>${selection.automatic_sync ? 'automatic synchronization enabled' : 'manual synchronization'}</strong> every ${escapeHtml(selection.interval_hours)} hour${selection.interval_hours === 1 ? '' : 's'}</li>
+        <li>${syncAfter ? 'The configuration will be saved and official documentation synchronization will start.' : 'The configuration will be saved without starting an immediate official synchronization.'}</li>
+        <li>${dashboardState?.client_integrations?.active_client === 'openclaw' ? 'OpenClaw will reload its MCP runtime after this save.' : 'Reconnect the configured MCP client after this save.'}</li>`;
+      pendingSaveSync = syncAfter;
+      $('confirm-review-button').textContent = syncAfter ? 'Save and synchronize' : 'Confirm save';
+      $('review-dialog').showModal();
+    }
+
+    async function loadState(silent = false) {
+      if (silent && configurationDirty) return;
+      try {
+        const state = await api('/api/state');
+        if (silent && configurationDirty) return;
+        render(state);
+        const expectedVersion = sessionStorage.getItem('helix-update-target');
+        if (expectedVersion && state.server_version === expectedVersion) {
+          sessionStorage.removeItem('helix-update-target');
+          showToast(`Server updated to ${expectedVersion}.`);
+        } else if (expectedVersion && state.dashboard_update?.status === 'error') {
+          sessionStorage.removeItem('helix-update-target');
+          showToast(state.dashboard_update.error || `Update to ${expectedVersion} failed.`, true);
+        }
+      } catch (error) {
+        if (!silent) showToast(error.message, true);
+      }
+    }
+
+    async function save(syncAfter) {
+      if (busy) return;
+      if (syncAfter && !hasProductSelection() && $('retain-versions').checked) {
+        showToast('Select documentation or disable retention to clean local data.', true);
+        return;
+      }
+      const selection = payload();
+      const productCount = Object.keys(selection.products).length;
+      const isFirstSelection = productCount > 0
+        && dashboardState
+        && Object.keys(dashboardState.sync.official.configured_products).length === 0
+        && dashboardState.sync.official.indexed_documents === 0;
+      if (isFirstSelection) {
+        const versionCount = Object.values(selection.products).reduce((total, versions) => total + versions.length, 0);
+        const confirmed = window.confirm(
+          `Confirm the first documentation selection: ${productCount} product${productCount === 1 ? '' : 's'} and ${versionCount} version${versionCount === 1 ? '' : 's'}?\n\nThe first download runs in the background and may take tens of minutes.${syncAfter ? ' It will start now.' : ''} You can keep using the MCP server.`
+        );
+        if (!confirmed) return;
+      }
+      setBusy(true);
+      try {
+        let cleanup = {required:false, documents:0, chunks:0, source_files:0, estimated_bytes:0, product_versions:[]};
+        if (!selection.retain_unselected_versions) {
+          cleanup = await api('/api/cleanup/preview', {method:'POST', body:JSON.stringify({products:selection.products})});
+          const destructiveCleanup = cleanup.documents > 0 || cleanup.source_files > 0 || cleanup.estimated_bytes > 0;
+          if (destructiveCleanup) {
+            const versions = cleanup.product_versions.map((item) => `${item.product} ${item.version}`).join(', ');
+            const confirmed = window.confirm(
+              `Remove unselected official documentation from this computer?\n\n${versions || 'Unselected official documentation'}\n${new Intl.NumberFormat('en-GB').format(cleanup.documents)} documents · ${new Intl.NumberFormat('en-GB').format(cleanup.chunks)} search fragments · approximately ${formatBytes(cleanup.estimated_bytes)}\n\nNew selections will be synchronized first. If that succeeds, the old database records, search index, vectors, downloaded HTML and synchronization state will be removed. Project documentation is never affected. Re-selecting a version later will download it again.`
+            );
+            if (!confirmed) return;
+          }
+        }
+        const state = await api('/api/configuration', {method:'POST', body:JSON.stringify(selection)});
+        render(state);
+        const application = state.application || {};
+        const savedMessage = application.status === 'applied'
+          ? 'Configuration saved and applied to OpenClaw.'
+          : application.status === 'reload_failed'
+            ? `Configuration saved, but OpenClaw reload failed (${application.error_code || 'OPENCLAW_INTEGRATION_ERROR'}). Reload it manually.`
+            : application.status === 'restart_required'
+              ? 'Configuration saved. Reconnect the MCP client to apply it.'
+              : application.status === 'unchanged'
+                ? 'No effective configuration change was detected.'
+                : 'Configuration saved.';
+        if (syncAfter || cleanup.required) {
+          await api('/api/sync', {method:'POST', body:'{}'});
+          const syncMessage = cleanup.required ? ' Synchronization and storage cleanup have started.' : ' Synchronization has started.';
+          showToast(`${savedMessage}${syncMessage}`, application.status === 'reload_failed');
+          setTimeout(() => loadState(true), 900);
+        } else {
+          showToast(savedMessage, application.status === 'reload_failed');
+        }
+      } catch (error) {
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    $('save-button').addEventListener('click', () => openConfigurationReview(false));
+    $('save-sync-button').addEventListener('click', () => openConfigurationReview(true));
+    $('cancel-review-button').addEventListener('click', () => {
+      pendingSaveSync = false;
+      $('review-dialog').close();
+    });
+    $('confirm-review-button').addEventListener('click', () => {
+      const syncAfter = pendingSaveSync;
+      $('review-dialog').close();
+      save(syncAfter);
+    });
+    for (const id of ['automatic-sync', 'bootstrap-empty', 'retain-versions', 'interval-hours']) {
+      $(id).addEventListener('change', () => markConfigurationDirty('settings'));
+    }
+    $('add-project-button').addEventListener('click', openProjectDialog);
+    $('browse-new-project-path').addEventListener('click', () => openFolderBrowser($('project-path-input')));
+    $('cancel-project-button').addEventListener('click', () => $('project-dialog').close());
+    $('cancel-folder-button').addEventListener('click', () => $('folder-dialog').close());
+    $('folder-go-button').addEventListener('click', () => browseFolder($('folder-path-input').value.trim()));
+    $('folder-path-input').addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      browseFolder($('folder-path-input').value.trim());
+    });
+    $('select-folder-button').addEventListener('click', () => {
+      if (!folderTargetInput || !folderCurrentPath || !folderCurrentSelectable) return;
+      const targetInput = folderTargetInput;
+      targetInput.value = folderCurrentPath;
+      targetInput.dispatchEvent(new Event('input', {bubbles:true}));
+      targetInput.dispatchEvent(new Event('change', {bubbles:true}));
+      $('folder-dialog').close();
+      targetInput.focus();
+    });
+    $('folder-dialog').addEventListener('close', () => {
+      folderTargetInput = null;
+      folderCurrentPath = '';
+      folderCurrentSelectable = false;
+    });
+    $('project-name-input').addEventListener('input', () => {
+      if (!projectIdCustomized) $('project-id-input').value = slugifyProjectId($('project-name-input').value);
+      if (!projectPathCustomized) $('project-path-input').value = suggestedProjectPath($('project-id-input').value);
+    });
+    $('project-id-input').addEventListener('input', () => {
+      projectIdCustomized = true;
+      if (!projectPathCustomized) $('project-path-input').value = suggestedProjectPath($('project-id-input').value);
+    });
+    $('project-path-input').addEventListener('input', () => { projectPathCustomized = true; });
+    $('project-create-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (busy || !$('project-create-form').reportValidity()) return;
+      const request = {
+        project_id: $('project-id-input').value.trim(),
+        name: $('project-name-input').value.trim(),
+        documents_path: $('project-path-input').value.trim(),
+        language: $('project-language-input').value,
+      };
+      setBusy(true);
+      try {
+        const state = await api('/api/projects/create', {method:'POST', body:JSON.stringify(request)});
+        $('project-dialog').close();
+        render(state);
+        showToast(`${request.name} created. Add documents to its folder and select the products it uses.`);
+      } catch (error) {
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    });
+    $('check-update-button').addEventListener('click', async () => {
+      if (busy) return;
+      setBusy(true);
+      try {
+        await api('/api/update/check', {method:'POST', body:'{}'});
+        await loadState(true);
+        showToast(dashboardState.update.status === 'available' ? `Version ${dashboardState.update.latest_version} is available.` : 'The server is up to date.');
+      } catch (error) { showToast(error.message, true); }
+      finally { setBusy(false); }
+    });
+    $('refresh-catalog-button').addEventListener('click', async () => {
+      if (busy) return;
+      setBusy(true);
+      try {
+        const state = await api('/api/catalog/refresh', {method:'POST', body:'{}'});
+        render(state);
+        showToast(state.catalog.status === 'updated' ? `Catalog updated to revision ${state.catalog.current_revision}.` : 'The BMC catalog is up to date.');
+      } catch (error) { showToast(error.message, true); }
+      finally { setBusy(false); }
+    });
+    $('ocr-enabled').addEventListener('change', async () => {
+      if (busy) return;
+      if (requireSavedConfiguration($('ocr-enabled'))) return;
+      const enable = $('ocr-enabled').checked;
+      if (enable && !dashboardState?.ocr?.installed) {
+        const confirmed = window.confirm(
+          `Install optional OCR support?\n\nThis downloads approximately ${formatBytes(dashboardState?.ocr?.estimated_install_bytes)} into an isolated local component. It is used only for scanned pages in project PDFs. No images are retained.`
+        );
+        if (!confirmed) {
+          $('ocr-enabled').checked = false;
+          return;
+        }
+      }
+      setBusy(true);
+      try {
+        const state = await api('/api/ocr/configuration', {method:'POST', body:JSON.stringify({enabled:enable})});
+        render(state);
+        showToast(enable && !state.ocr.enabled ? 'OCR installation started.' : enable ? 'OCR enabled.' : 'OCR disabled. Installed files were retained.');
+      } catch (error) {
+        $('ocr-enabled').checked = !enable;
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    });
+    $('semantic-enabled').addEventListener('change', async () => {
+      if (busy) return;
+      if (requireSavedConfiguration($('semantic-enabled'))) return;
+      const enable = $('semantic-enabled').checked;
+      if (enable && !dashboardState?.semantic?.installed) {
+        const confirmed = window.confirm(
+          `Install optional semantic search?\n\nThis downloads the pinned BGE-M3 model and isolated dependencies, requiring up to ${formatBytes(dashboardState?.semantic?.estimated_install_bytes)} plus vector storage. Existing chunks will be vectorized in the background. Lexical search remains available.`
+        );
+        if (!confirmed) {
+          $('semantic-enabled').checked = false;
+          return;
+        }
+      }
+      setBusy(true);
+      try {
+        const state = await api('/api/semantic/configuration', {method:'POST', body:JSON.stringify({enabled:enable})});
+        render(state);
+        showToast(enable && !state.semantic.enabled ? 'Semantic setup started.' : enable ? 'Semantic search enabled.' : 'Semantic search disabled. Installed files and vectors were retained.');
+      } catch (error) {
+        $('semantic-enabled').checked = !enable;
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    });
+    $('semantic-remove').addEventListener('click', async () => {
+      if (busy || dashboardState?.semantic?.enabled || !dashboardState?.semantic?.installed) return;
+      if (requireSavedConfiguration()) return;
+      const total = (dashboardState.semantic.installed_bytes || 0) + (dashboardState.semantic.vector_bytes || 0);
+      const confirmed = window.confirm(
+        `Remove semantic search data?\n\nThis permanently removes the BGE-M3 component and local Qdrant vectors, recovering approximately ${formatBytes(total)}. Lexical search and source documents are unaffected.`
+      );
+      if (!confirmed) return;
+      setBusy(true);
+      try {
+        const state = await api('/api/semantic/remove', {method:'POST', body:'{}'});
+        render(state);
+        showToast(`Semantic component removed. Lexical search remains active.`);
+      } catch (error) {
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    });
+    $('semantic-cancel').addEventListener('click', async () => {
+      if (busy || !['installing', 'indexing'].includes(dashboardState?.semantic?.status)) return;
+      if (!window.confirm('Cancel semantic setup?\n\nThe current batch will finish, then semantic search will remain disabled. Downloaded files and completed vectors will be retained.')) return;
+      setBusy(true);
+      try {
+        const state = await api('/api/semantic/configuration', {method:'POST', body:JSON.stringify({enabled:false})});
+        render(state);
+        showToast('Semantic setup cancellation requested. The current batch will finish safely.');
+      } catch (error) {
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    });
+    $('reranker-enabled').addEventListener('change', async () => {
+      if (busy) return;
+      if (requireSavedConfiguration($('reranker-enabled'))) return;
+      const enable = $('reranker-enabled').checked;
+      if (enable && dashboardState?.reranker?.setup_requires_download) {
+        const action = dashboardState?.reranker?.installed ? 'Update' : 'Install';
+        const confirmed = window.confirm(
+          `${action} result reranking?\n\nThis downloads a pinned multilingual model and isolated dependencies. Setup can use up to ${formatBytes(dashboardState?.reranker?.estimated_install_bytes)} and retains about 3.3 GB. The active component remains untouched until its replacement passes validation. While enabled it uses about 1.8 GB of RAM; CPU-only searches can take roughly 10–16 seconds. It creates no vectors, and the existing ranking remains available as a fallback.`
+        );
+        if (!confirmed) {
+          $('reranker-enabled').checked = false;
+          return;
+        }
+      }
+      setBusy(true);
+      try {
+        const state = await api('/api/reranker/configuration', {method:'POST', body:JSON.stringify({enabled:enable})});
+        render(state);
+        showToast(enable && ['installing', 'starting'].includes(state.reranker.status) ? 'Reranker setup started.' : enable ? 'Result reranking enabled.' : 'Result reranking disabled. Installed files were retained.');
+      } catch (error) {
+        $('reranker-enabled').checked = !enable;
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    });
+    $('reranker-remove').addEventListener('click', async () => {
+      if (busy || dashboardState?.reranker?.enabled || !dashboardState?.reranker?.removable) return;
+      if (requireSavedConfiguration()) return;
+      const confirmed = window.confirm(
+        `Remove the result reranker?\n\nThis permanently removes the local component, recovering approximately ${formatBytes(dashboardState.reranker.installed_bytes)}. Search documents and the existing ranking are unaffected.`
+      );
+      if (!confirmed) return;
+      setBusy(true);
+      try {
+        const state = await api('/api/reranker/remove', {method:'POST', body:'{}'});
+        render(state);
+        showToast('Reranker component removed. The existing ranking remains active.');
+      } catch (error) {
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    });
+    $('reranker-cancel').addEventListener('click', async () => {
+      if (busy || !['installing', 'starting'].includes(dashboardState?.reranker?.status)) return;
+      if (requireSavedConfiguration()) return;
+      if (!window.confirm('Cancel reranker setup?\n\nThe current installation or model-loading step will finish safely, then result reranking will remain disabled. Downloaded files may be retained.')) return;
+      setBusy(true);
+      try {
+        const state = await api('/api/reranker/configuration', {method:'POST', body:JSON.stringify({enabled:false})});
+        render(state);
+        showToast('Reranker setup cancellation requested. The current step will finish safely.');
+      } catch (error) {
+        showToast(error.message, true);
+      } finally {
+        setBusy(false);
+      }
+    });
+    $('install-update-button').addEventListener('click', async () => {
+      if (busy || dashboardState?.update?.status !== 'available') return;
+      const targetVersion = dashboardState.update.latest_version;
+      const confirmed = window.confirm(
+        `Install Helix Knowledge ${targetVersion}?\n\nThe release digest, backup, installation, smoke test, and stable launcher switch will be verified automatically.${dashboardState?.sync?.official?.status === 'running' ? ' The update will wait for documentation synchronization to finish.' : ''}${dashboardState.client_integrations.active_client === 'openclaw' ? ' OpenClaw will restart briefly.' : ''} This page will reconnect when the update finishes.`
+      );
+      if (!confirmed) return;
+      setBusy(true);
+      try {
+        const result = await api('/api/update/install', {method:'POST', body:'{}'});
+        if (['started', 'queued'].includes(result.status)) {
+          sessionStorage.setItem('helix-update-target', targetVersion);
+          showToast(result.status === 'queued' ? `Update ${targetVersion} queued until synchronization finishes.` : `Installing ${targetVersion}. This page will reconnect automatically.`);
+          await reconnectAfterUpdate(targetVersion, result.status === 'queued');
+        } else {
+          showToast(`Update to ${result.target_version || targetVersion} is already running.`);
+        }
+      } catch (error) {
+        showToast(error.message, true);
+        setBusy(false);
+      }
+    });
+    $('refresh-button').addEventListener('click', () => loadState());
+    $('cancel-sync-button').addEventListener('click', async () => {
+      if (busy || !['pending', 'running'].includes(dashboardState?.sync?.official?.automation_status)) return;
+      if (!window.confirm('Stop this synchronization safely?\n\nThe worker will finish the current document and keep everything already indexed.')) return;
+      setBusy(true);
+      try {
+        const result = await api('/api/sync/cancel', {method:'POST', body:'{}'});
+        showToast(result.status === 'cancelled' ? 'Pending synchronization cancelled.' : 'Safe cancellation requested.');
+        await loadState(true);
+      } catch (error) { showToast(error.message, true); }
+      finally { setBusy(false); }
+    });
+    $('sync-button').addEventListener('click', async () => {
+      if (busy) return;
+      if (!hasProductSelection() && $('retain-versions').checked) {
+        showToast('Select documentation or disable retention to clean local data.', true);
+        return;
+      }
+      setBusy(true);
+      try {
+        const result = await api('/api/sync', {method:'POST', body:'{}'});
+        showToast(result.status === 'already_running' ? 'Synchronization is already running.' : 'Synchronization started in the background.');
+        setTimeout(() => loadState(true), 900);
+      } catch (error) { showToast(error.message, true); }
+      finally { setBusy(false); }
+    });
+
+    async function reconnectAfterUpdate(targetVersion, queued = false) {
+      const deadline = Date.now() + (queued ? 7 * 60 * 60 * 1000 : 20 * 60 * 1000);
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 1800));
+        try {
+          const response = await fetch('/api/health', {cache:'no-store'});
+          if (!response.ok) continue;
+          const state = await response.json();
+          if (state.server_version === targetVersion) {
+            window.location.reload();
+            return;
+          }
+        } catch (_) {
+          // The dashboard is expected to be temporarily unavailable during the update.
+        }
+      }
+      showToast('The update is still running. Refresh this page in a few minutes.', true);
+      setBusy(false);
+    }
+    let statePollTimer;
+    function statePollDelay() {
+      if (document.hidden) return 60000;
+      const syncStatus = dashboardState?.sync?.official?.automation_status;
+      const updateStatus = dashboardState?.dashboard_update?.status;
+      const componentBusy = ['installing', 'indexing'].includes(dashboardState?.ocr?.status)
+        || ['installing', 'indexing'].includes(dashboardState?.semantic?.status)
+        || ['installing', 'starting', 'stopping'].includes(dashboardState?.reranker?.status);
+      const projectBusy = dashboardState?.projects?.some((project) =>
+        ['pending', 'waiting', 'running'].includes(project?.sync?.status)
+      );
+      if (projectBusy) return 2000;
+      return busy || componentBusy || ['pending', 'running'].includes(syncStatus)
+        || ['pending', 'waiting', 'running'].includes(updateStatus) ? 5000 : 30000;
+    }
+    function scheduleStatePoll(immediate = false) {
+      window.clearTimeout(statePollTimer);
+      statePollTimer = window.setTimeout(async () => {
+        await loadState(true);
+        scheduleStatePoll();
+      }, immediate ? 0 : statePollDelay());
+    }
+    document.addEventListener('visibilitychange', () => scheduleStatePoll(!document.hidden));
+    loadState().finally(() => scheduleStatePoll());
+  </script>
+</body>
+</html>

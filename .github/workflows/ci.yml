@@ -1,0 +1,181 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    name: test-and-build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project and development tools
+        run: |
+          python -m pip install uv==0.11.16
+          uv sync --frozen --extra dev
+      - name: Lint
+        run: uv run --frozen --extra dev ruff check .
+      - name: Check formatting
+        run: uv run --frozen --extra dev ruff format --check .
+      - name: Check Linux installer shell safety
+        if: runner.os == 'Linux'
+        run: uvx --from shellcheck-py==0.11.0.1 shellcheck scripts/install-linux.sh
+      - name: Test
+        run: >-
+          uv run --frozen --extra dev pytest
+          --cov=helix_mcp_knowledge
+          --cov-branch
+          --cov-report=term-missing
+          --cov-fail-under=75
+      - name: Audit installed dependencies
+        if: runner.os == 'Linux'
+        run: |
+          uvx pip-audit==2.10.1 --skip-editable .
+          uvx pip-audit==2.10.1 -r src/helix_mcp_knowledge/resources/requirements/ocr-component.txt
+          uvx pip-audit==2.10.1 --no-deps --disable-pip -r src/helix_mcp_knowledge/resources/requirements/reranker-component.txt
+          uvx pip-audit==2.10.1 --no-deps --disable-pip -r requirements/reranker-audit.txt
+          uvx pip-audit==2.10.1 --no-deps --disable-pip -r src/helix_mcp_knowledge/resources/requirements/semantic-component.txt
+          uvx pip-audit==2.10.1 --no-deps --disable-pip -r requirements/semantic-audit.txt
+      - name: Build distributions
+        run: uv run --frozen --extra dev python -m build
+      - name: Verify packaged first-run resources
+        run: uv run --frozen --extra dev python scripts/verify_built_wheel.py
+      - name: Verify transactional update flow
+        run: uv run --frozen --extra dev python scripts/verify_update_flow.py
+      - name: Verify native Linux installer
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          # Hosted runners isolate user services from the step network namespace.
+          # Exercise the packaged no-systemd supervisor here; systemd rendering is
+          # covered separately and the real user service is validated on WSL.
+          HELIX_KNOWLEDGE_DASHBOARD_MANAGER: detached
+        run: |
+          bash -n scripts/install-linux.sh
+          openclaw_stub="${RUNNER_TEMP}/openclaw"
+          printf '#!/usr/bin/env bash\nexit 0\n' > "${openclaw_stub}"
+          chmod +x "${openclaw_stub}"
+          version="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")"
+          wheel="$(find dist -maxdepth 1 -name "helix_mcp_knowledge-${version}-*.whl" -print -quit)"
+          test -n "${wheel}"
+          ./scripts/install-linux.sh \
+            --version "${version}" \
+            --wheel "${wheel}" \
+            --requirements runtime-requirements.txt \
+            --install-root "${RUNNER_TEMP}/helix-installer-smoke" \
+            --python-command python \
+            --client openclaw \
+            --openclaw-command "${openclaw_stub}" \
+            --dashboard-port 18765 \
+            --no-automatic-sync \
+            --no-probe \
+            --no-reload \
+            --no-dashboard
+          ./scripts/install-linux.sh \
+            --version "${version}" \
+            --wheel "${wheel}" \
+            --requirements runtime-requirements.txt \
+            --install-root "${RUNNER_TEMP}/helix-installer-smoke" \
+            --python-command python \
+            --client openclaw \
+            --openclaw-command "${openclaw_stub}" \
+            --dashboard-port 18765 \
+            --no-automatic-sync \
+            --no-probe \
+            --no-reload \
+            --no-dashboard \
+            --resume
+          ./scripts/install-linux.sh \
+            --version "${version}" \
+            --wheel "${wheel}" \
+            --requirements runtime-requirements.txt \
+            --install-root "${RUNNER_TEMP}/helix-generic-installer-smoke" \
+            --python-command python \
+            --client none \
+            --dashboard-port 18766 \
+            --no-automatic-sync \
+            --no-dashboard
+      - name: Verify native Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $openclaw = Join-Path $env:RUNNER_TEMP 'openclaw.cmd'
+          Set-Content -LiteralPath $openclaw -Value '@exit /b 0' -Encoding ascii
+          Set-Content -LiteralPath ([IO.Path]::ChangeExtension($openclaw, '.ps1')) -Value 'exit 0' -Encoding ascii
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($version)) {
+            throw 'Project version could not be resolved'
+          }
+          $wheel = Get-ChildItem -LiteralPath dist -Filter "helix_mcp_knowledge-$version-*.whl" | Select-Object -ExpandProperty FullName -First 1
+          if (-not $wheel) {
+            throw 'Built wheel was not found'
+          }
+          ./scripts/install-windows.ps1 `
+            -Version $version `
+            -WheelPath $wheel `
+            -RequirementsPath runtime-requirements.txt `
+            -InstallRoot (Join-Path $env:RUNNER_TEMP 'helix-installer-smoke') `
+            -PythonCommand python `
+            -Client openclaw `
+            -OpenClawCommand $openclaw `
+            -DashboardPort 18765 `
+            -NoAutomaticSync `
+            -NoProbe `
+            -NoReload `
+            -NoDashboard
+          ./scripts/install-windows.ps1 `
+            -Version $version `
+            -WheelPath $wheel `
+            -RequirementsPath runtime-requirements.txt `
+            -InstallRoot (Join-Path $env:RUNNER_TEMP 'helix-installer-smoke') `
+            -PythonCommand python `
+            -Client openclaw `
+            -OpenClawCommand $openclaw `
+            -DashboardPort 18765 `
+            -NoAutomaticSync `
+            -NoProbe `
+            -NoReload `
+            -NoDashboard `
+            -Resume
+          ./scripts/install-windows.ps1 `
+            -Version $version `
+            -WheelPath $wheel `
+            -RequirementsPath runtime-requirements.txt `
+            -InstallRoot (Join-Path $env:RUNNER_TEMP 'helix-generic-installer-smoke') `
+            -PythonCommand python `
+            -Client none `
+            -DashboardPort 18766 `
+            -NoAutomaticSync `
+            -NoDashboard
+          $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+          $startup = Get-ItemPropertyValue `
+            -LiteralPath $runKey `
+            -Name 'HelixMcpKnowledgeDashboard' `
+            -ErrorAction Stop
+          if ($startup -notlike '*helix-generic-installer-smoke*helix-mcp-knowledge-dashboard.ps1*') {
+            throw "Unexpected dashboard startup registration: $startup"
+          }
+          $health = Invoke-RestMethod `
+            -Uri 'http://127.0.0.1:18766/api/health' `
+            -TimeoutSec 10
+          if ($health.status -ne 'ok' -or $health.server_version -ne $version) {
+            throw "Unexpected dashboard health response: $($health | ConvertTo-Json -Compress)"
+          }
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: python-distributions-${{ runner.os }}
+          path: dist/*

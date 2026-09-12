@@ -1,0 +1,10 @@
+--index-url https://pypi.org/simple
+
+torch==2.14.0
+transformers==5.16.1
+
+# Keep transitive bootstrap/network packages on audited releases so a lock
+# refresh cannot retain vulnerable compatible versions.
+certifi==2026.7.22
+idna==3.19
+setuptools==84.0.0

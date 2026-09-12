@@ -1,0 +1,20 @@
+schema_version: 1
+id: example
+name: Example Project
+description: Example project configuration. Do not use for production data.
+status: active
+classification: confidential
+documents:
+  path: data/sources/projects/example/docs
+  sources_manifest: config/projects/example.sources.yaml
+languages:
+  - en
+bmc:
+  products:
+    cmdb:
+      version: "26.1"
+    itsm:
+      version: "26.1"
+tags:
+  - cmdb
+  - itsm

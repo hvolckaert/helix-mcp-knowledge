@@ -1,0 +1,430 @@
+schema_version: 2
+catalog_revision: 1
+products:
+- product_id: arsystem
+  name: BMC Helix Innovation Suite / AR System
+  aliases:
+  - AR System
+  - ARS
+  - Remedy AR System
+  active: true
+- product_id: cmdb
+  name: BMC Helix CMDB
+  aliases:
+  - CMDB
+  - BMC CMDB
+  - Helix CMDB
+  active: true
+- product_id: discovery
+  name: BMC Helix Discovery
+  aliases:
+  - Discovery
+  - BMC Discovery
+  - ADDM
+  active: true
+- product_id: itsm
+  name: BMC Helix ITSM
+  aliases:
+  - ITSM
+  - BMC ITSM
+  - Remedy ITSM
+  active: true
+- product_id: digital_workplace
+  name: BMC Helix Digital Workplace
+  aliases:
+  - DWP
+  - Digital Workplace
+  active: true
+- product_id: business_workflows
+  name: BMC Helix Business Workflows
+  aliases:
+  - BWF
+  - Business Workflows
+  active: true
+publisher: BMC Software
+sources:
+- source_id: bmc-cmdb-26-1-home
+  title: BMC Helix CMDB 26.1
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac261/
+  local_path: cmdb/26.1/home.html
+  product: cmdb
+  version: '26.1'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-cmdb-26-1-release-notes
+  title: BMC Helix CMDB 26.1 — Release notes and notices
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac261/Release-notes-and-notices/
+  local_path: cmdb/26.1/release-notes.html
+  product: cmdb
+  version: '26.1'
+  document_type: release_notes
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-cmdb-26-1-cdm-changes
+  title: BMC Helix CMDB 26.1 — Summary of Common Data Model changes
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac261/Managing-the-common-data-model/Summary-of-changes-to-the-Common-Data-Model/
+  local_path: cmdb/26.1/cdm/summary-of-changes.html
+  product: cmdb
+  version: '26.1'
+  document_type: cdm
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-cmdb-26-1-normalization
+  title: BMC Helix CMDB 26.1 — Managing consistency by using normalization
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac261/Using/Managing-consistency-of-CMDB-data-by-using-normalization/
+  local_path: cmdb/26.1/using/normalization.html
+  product: cmdb
+  version: '26.1'
+  document_type: administration
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-cmdb-26-1-web-services-api
+  title: BMC Helix CMDB 26.1 — Web Services API functions
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac261/Developing/Integrating-your-services-with-external-products-by-using-the-CMDB-web-services-API/CMDB-Web-Services-API-functions/
+  local_path: cmdb/26.1/api/web-services-functions.html
+  product: cmdb
+  version: '26.1'
+  document_type: api
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-itsm-26-1-home
+  title: BMC Helix ITSM 26.1
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-ITSM/itsm261/
+  local_path: itsm/26.1/home.html
+  product: itsm
+  version: '26.1'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-itsm-26-1-platform-rest-api
+  title: BMC Helix ITSM 26.1 — Platform REST API integration
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-ITSM/itsm261/Developing/Integrating-third-party-applications-with-BMC-Helix-ITSM-by-using-the-platform-REST-API/
+  local_path: itsm/26.1/api/platform-rest-api.html
+  product: itsm
+  version: '26.1'
+  document_type: api
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-arsystem-26-1-home
+  title: BMC Helix Innovation Suite / AR System 26.1
+  url: https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is261/
+  local_path: arsystem/26.1/home.html
+  product: arsystem
+  version: '26.1'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-arsystem-26-1-architecture
+  title: BMC Helix Innovation Suite / AR System 26.1 — Architecture
+  url: https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is261/Getting-started/Key-concepts/Architecture/BMC-Helix-Innovation-Suite-architecture/
+  local_path: arsystem/26.1/architecture/innovation-suite.html
+  product: arsystem
+  version: '26.1'
+  document_type: architecture
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-arsystem-26-1-rest-syntax
+  title: AR System 26.1 — REST API syntax and schemes
+  url: https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is261/Developing-an-API-program/Integrating-AR-System-forms-with-a-third-party-application-by-using-the-REST-API/Syntax-and-schemes-for-the-REST-API/
+  local_path: arsystem/26.1/api/rest-syntax-and-schemes.html
+  product: arsystem
+  version: '26.1'
+  document_type: api
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-arsystem-26-1-object-relationships
+  title: AR System 26.1 — High-level object relationships
+  url: https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is261/Developing-an-API-program/Data-structures/High-level-object-relationships/
+  local_path: arsystem/26.1/development/high-level-object-relationships.html
+  product: arsystem
+  version: '26.1'
+  document_type: development
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-cmdb-26-2-home
+  title: BMC Helix CMDB 26.2
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac262/
+  local_path: cmdb/26.2/home.html
+  product: cmdb
+  version: '26.2'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-cmdb-26-3-home
+  title: BMC Helix CMDB 26.3
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac263/
+  local_path: cmdb/26.3/home.html
+  product: cmdb
+  version: '26.3'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-itsm-26-2-home
+  title: BMC Helix ITSM 26.2
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-ITSM/itsm262/
+  local_path: itsm/26.2/home.html
+  product: itsm
+  version: '26.2'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-itsm-26-3-home
+  title: BMC Helix ITSM 26.3
+  url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-ITSM/itsm263/
+  local_path: itsm/26.3/home.html
+  product: itsm
+  version: '26.3'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-arsystem-26-2-home
+  title: BMC Helix Innovation Suite / AR System 26.2
+  url: https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is262/
+  local_path: arsystem/26.2/home.html
+  product: arsystem
+  version: '26.2'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-arsystem-26-3-home
+  title: BMC Helix Innovation Suite / AR System 26.3
+  url: https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is263/
+  local_path: arsystem/26.3/home.html
+  product: arsystem
+  version: '26.3'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-digital-workplace-26-1-home
+  title: BMC Helix Digital Workplace 26.1
+  url: https://docs.helixops.ai/bin/Service-Management/Employee-Digital-Workplace/BMC-Helix-Digital-Workplace/dwp261/
+  local_path: digital_workplace/26.1/home.html
+  product: digital_workplace
+  version: '26.1'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-digital-workplace-26-2-home
+  title: BMC Helix Digital Workplace 26.2
+  url: https://docs.helixops.ai/bin/Service-Management/Employee-Digital-Workplace/BMC-Helix-Digital-Workplace/dwp262/
+  local_path: digital_workplace/26.2/home.html
+  product: digital_workplace
+  version: '26.2'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-digital-workplace-26-3-home
+  title: BMC Helix Digital Workplace 26.3
+  url: https://docs.helixops.ai/bin/Service-Management/Employee-Digital-Workplace/BMC-Helix-Digital-Workplace/dwp263/
+  local_path: digital_workplace/26.3/home.html
+  product: digital_workplace
+  version: '26.3'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-business-workflows-26-1-home
+  title: BMC Helix Business Workflows 26.1
+  url: https://docs.helixops.ai/bin/Service-Management/Enterprise-Service-Management/BMC-Helix-Business-Workflows/bwf261/
+  local_path: business_workflows/26.1/home.html
+  product: business_workflows
+  version: '26.1'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-business-workflows-26-2-home
+  title: BMC Helix Business Workflows 26.2
+  url: https://docs.helixops.ai/bin/Service-Management/Enterprise-Service-Management/BMC-Helix-Business-Workflows/bwf262/
+  local_path: business_workflows/26.2/home.html
+  product: business_workflows
+  version: '26.2'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-business-workflows-26-3-home
+  title: BMC Helix Business Workflows 26.3
+  url: https://docs.helixops.ai/bin/Service-Management/Enterprise-Service-Management/BMC-Helix-Business-Workflows/bwf263/
+  local_path: business_workflows/26.3/home.html
+  product: business_workflows
+  version: '26.3'
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+- source_id: bmc-discovery-current-home
+  title: BMC Helix Discovery (SaaS) — current documentation
+  url: https://docs.helixops.ai/bin/IT-Operations-Management/Discovery/BMC-Helix-Discovery/DAAS/
+  local_path: discovery/current/home.html
+  product: discovery
+  version: current
+  document_type: concept
+  language: en
+  enabled: true
+  metadata: {}
+collections:
+- collection_id: bmc-cmdb-26-1
+  root_url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac261/
+  local_path_prefix: cmdb/26.1/discovered
+  product: cmdb
+  version: '26.1'
+  language: en
+  max_pages: 1000
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-itsm-26-1
+  root_url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-ITSM/itsm261/
+  local_path_prefix: itsm/26.1/discovered
+  product: itsm
+  version: '26.1'
+  language: en
+  max_pages: 1500
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-arsystem-26-1
+  root_url: https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is261/
+  local_path_prefix: arsystem/26.1/discovered
+  product: arsystem
+  version: '26.1'
+  language: en
+  max_pages: 1500
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-cmdb-26-2
+  root_url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac262/
+  local_path_prefix: cmdb/26.2/discovered
+  product: cmdb
+  version: '26.2'
+  language: en
+  max_pages: 1000
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-cmdb-26-3
+  root_url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac263/
+  local_path_prefix: cmdb/26.3/discovered
+  product: cmdb
+  version: '26.3'
+  language: en
+  max_pages: 1000
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-itsm-26-2
+  root_url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-ITSM/itsm262/
+  local_path_prefix: itsm/26.2/discovered
+  product: itsm
+  version: '26.2'
+  language: en
+  max_pages: 1500
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-itsm-26-3
+  root_url: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-ITSM/itsm263/
+  local_path_prefix: itsm/26.3/discovered
+  product: itsm
+  version: '26.3'
+  language: en
+  max_pages: 1500
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-arsystem-26-2
+  root_url: https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is262/
+  local_path_prefix: arsystem/26.2/discovered
+  product: arsystem
+  version: '26.2'
+  language: en
+  max_pages: 1500
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-arsystem-26-3
+  root_url: https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is263/
+  local_path_prefix: arsystem/26.3/discovered
+  product: arsystem
+  version: '26.3'
+  language: en
+  max_pages: 1500
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-digital-workplace-26-1
+  root_url: https://docs.helixops.ai/bin/Service-Management/Employee-Digital-Workplace/BMC-Helix-Digital-Workplace/dwp261/
+  local_path_prefix: digital_workplace/26.1/discovered
+  product: digital_workplace
+  version: '26.1'
+  language: en
+  max_pages: 1500
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-digital-workplace-26-2
+  root_url: https://docs.helixops.ai/bin/Service-Management/Employee-Digital-Workplace/BMC-Helix-Digital-Workplace/dwp262/
+  local_path_prefix: digital_workplace/26.2/discovered
+  product: digital_workplace
+  version: '26.2'
+  language: en
+  max_pages: 1500
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-digital-workplace-26-3
+  root_url: https://docs.helixops.ai/bin/Service-Management/Employee-Digital-Workplace/BMC-Helix-Digital-Workplace/dwp263/
+  local_path_prefix: digital_workplace/26.3/discovered
+  product: digital_workplace
+  version: '26.3'
+  language: en
+  max_pages: 1500
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-business-workflows-26-1
+  root_url: https://docs.helixops.ai/bin/Service-Management/Enterprise-Service-Management/BMC-Helix-Business-Workflows/bwf261/
+  local_path_prefix: business_workflows/26.1/discovered
+  product: business_workflows
+  version: '26.1'
+  language: en
+  max_pages: 1000
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-business-workflows-26-2
+  root_url: https://docs.helixops.ai/bin/Service-Management/Enterprise-Service-Management/BMC-Helix-Business-Workflows/bwf262/
+  local_path_prefix: business_workflows/26.2/discovered
+  product: business_workflows
+  version: '26.2'
+  language: en
+  max_pages: 1000
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-business-workflows-26-3
+  root_url: https://docs.helixops.ai/bin/Service-Management/Enterprise-Service-Management/BMC-Helix-Business-Workflows/bwf263/
+  local_path_prefix: business_workflows/26.3/discovered
+  product: business_workflows
+  version: '26.3'
+  language: en
+  max_pages: 1000
+  request_delay_seconds: 0.25
+  enabled: true
+- collection_id: bmc-discovery-current
+  root_url: https://docs.helixops.ai/bin/IT-Operations-Management/Discovery/BMC-Helix-Discovery/DAAS/
+  local_path_prefix: discovery/current/discovered
+  product: discovery
+  version: current
+  language: en
+  max_pages: 1500
+  request_delay_seconds: 0.25
+  enabled: true

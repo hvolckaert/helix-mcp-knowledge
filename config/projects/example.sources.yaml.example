@@ -1,0 +1,16 @@
+schema_version: 1
+project_id: example
+
+sources:
+  - path: "architecture/**/*.pdf"
+    document_type: architecture
+    language: en
+    products:
+      cmdb: null
+
+  - path: "integrations/*.docx"
+    document_type: integration
+    language: en
+    products:
+      cmdb: null
+      itsm: null

@@ -1,0 +1,101 @@
+name: BMC catalog watch
+
+on:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: bmc-catalog-watch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  detect-validate-and-propose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install catalog validation runtime
+        run: |
+          python -m pip install uv==0.11.16
+          uv sync --frozen --extra dev
+      - name: Detect, crawl, and temporarily index candidate releases
+        shell: bash
+        run: |
+          set +e
+          uv run --frozen --extra dev python scripts/watch_bmc_catalog.py \
+            --catalog config/sources/bmc-official-26.1.yaml \
+            --watch-config config/catalog-watch.yaml \
+            --report "${RUNNER_TEMP}/catalog-watch-report.md" \
+            --write
+          watch_status=$?
+          set -e
+          cat "${RUNNER_TEMP}/catalog-watch-report.md" >> "${GITHUB_STEP_SUMMARY}"
+          exit "${watch_status}"
+      - name: Check whether a catalog proposal was produced
+        id: changes
+        shell: bash
+        run: |
+          if git diff --quiet -- config/sources/bmc-official-26.1.yaml; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Validate the proposed repository state
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          uv run --frozen --extra dev ruff check .
+          uv run --frozen --extra dev ruff format --check .
+          uv run --frozen --extra dev pytest
+          uv run --frozen --extra dev python -m build
+          uv run --frozen --extra dev python scripts/verify_built_wheel.py
+      - name: Create or update the review pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          branch="automation/bmc-catalog-watch"
+          remote_sha="$(git ls-remote --heads origin "${branch}" | cut -f1)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "${branch}"
+          git add config/sources/bmc-official-26.1.yaml
+          git commit -m "Propose validated BMC catalog additions"
+          if [[ -n "${remote_sha}" ]]; then
+            git push --force-with-lease="refs/heads/${branch}:${remote_sha}" origin "HEAD:${branch}"
+          else
+            git push --set-upstream origin "HEAD:${branch}"
+          fi
+          head_sha="$(git rev-parse HEAD)"
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/statuses/${head_sha}" \
+            -f state=success \
+            -f context="catalog-validation" \
+            -f description="Navigation, indexing, tests, and package validation passed"
+          gh label create "catalog-update" \
+            --color "0A3768" \
+            --description "Automated, validated BMC catalog proposal" \
+            --force
+          pr_number="$(gh pr list --state open --head "${branch}" --json number --jq '.[0].number // empty')"
+          if [[ -n "${pr_number}" ]]; then
+            gh pr edit "${pr_number}" --body-file "${RUNNER_TEMP}/catalog-watch-report.md"
+          else
+            gh pr create \
+              --base main \
+              --head "${branch}" \
+              --title "Propose validated BMC catalog additions" \
+              --label "catalog-update" \
+              --body-file "${RUNNER_TEMP}/catalog-watch-report.md"
+          fi

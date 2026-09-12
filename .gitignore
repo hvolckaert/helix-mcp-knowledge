@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.env
+/.update.lock
+/components/
+data/sources/
+data/sqlite/*.db
+data/sqlite/*.db-*
+data/cache/*
+data/errors/*
+config/projects/.removed/
+# Deployment-specific project manifests; only *.yaml.example templates are versioned.
+config/projects/*.yaml
+!data/**/.gitkeep

@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  validate-core:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  validate-ocr:
+    uses: ./.github/workflows/ocr-ci.yml
+    permissions:
+      contents: read
+
+  validate-semantic:
+    uses: ./.github/workflows/semantic-ci.yml
+    permissions:
+      contents: read
+
+  validate-reranker:
+    uses: ./.github/workflows/reranker-ci.yml
+    permissions:
+      contents: read
+
+  build-and-release:
+    needs: [validate-core, validate-ocr, validate-semantic, validate-reranker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install and test release candidate
+        run: |
+          python -m pip install uv==0.11.16
+          uv sync --frozen --extra dev
+          uv run --frozen --extra dev pytest
+      - name: Verify tag matches package version
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+
+          with open("pyproject.toml", "rb") as stream:
+              version = tomllib.load(stream)["project"]["version"]
+          expected = f"v{version}"
+          actual = os.environ["GITHUB_REF_NAME"]
+          if actual != expected:
+              raise SystemExit(f"release tag {actual!r} must be {expected!r}")
+          PY
+      - name: Build wheel and source distribution
+        run: |
+          uv export --frozen --no-dev --no-emit-project --no-header \
+            --output-file /tmp/runtime-requirements.txt
+          diff --unified runtime-requirements.txt /tmp/runtime-requirements.txt
+          uv run --frozen --extra dev python -m build
+      - name: Verify generic distribution and clean installation
+        run: uv run --frozen --extra dev python scripts/verify_built_wheel.py
+      - name: Add platform installers to release assets
+        run: |
+          install -m 0755 scripts/install-linux.sh dist/install-linux.sh
+          cp scripts/install-windows.ps1 dist/install-windows.ps1
+          cp runtime-requirements.txt dist/runtime-requirements.txt
+          (cd dist && sha256sum -- * > SHA256SUMS)
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          expected="$(mktemp)"
+          actual="$(mktemp)"
+          find dist -maxdepth 1 -type f -printf '%f\n' | sort -u > "${expected}"
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            is_draft="$(
+              gh release view "${GITHUB_REF_NAME}" --json isDraft --jq '.isDraft'
+            )"
+            if [[ "${is_draft}" == "true" ]]; then
+              echo "removing incomplete draft release ${GITHUB_REF_NAME} before retry"
+              gh release delete "${GITHUB_REF_NAME}" --yes
+            else
+              gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name' \
+                | sort -u > "${actual}"
+              if ! cmp --silent "${expected}" "${actual}"; then
+                echo "release ${GITHUB_REF_NAME} has a different asset set" >&2
+                diff --unified "${actual}" "${expected}" || true
+                exit 1
+              fi
+              while IFS= read -r asset; do
+                expected_digest="sha256:$(sha256sum -- "dist/${asset}" | cut -d' ' -f1)"
+                actual_digest="$(
+                  gh release view "${GITHUB_REF_NAME}" --json assets \
+                    --jq ".assets[] | select(.name == \"${asset}\") | .digest"
+                )"
+                if [[ "${actual_digest}" != "${expected_digest}" ]]; then
+                  echo "release ${GITHUB_REF_NAME} digest mismatch for ${asset}" >&2
+                  exit 1
+                fi
+              done < "${expected}"
+              echo "release ${GITHUB_REF_NAME} already contains the exact verified assets"
+              exit 0
+            fi
+          fi
+          gh release create "${GITHUB_REF_NAME}" --draft --generate-notes --verify-tag
+          gh release upload "${GITHUB_REF_NAME}" dist/*
+          gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name' \
+            | sort -u > "${actual}"
+          cmp --silent "${expected}" "${actual}"
+          gh release edit "${GITHUB_REF_NAME}" --draft=false

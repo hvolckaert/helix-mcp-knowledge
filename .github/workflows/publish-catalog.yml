@@ -1,0 +1,148 @@
+name: Publish BMC catalog
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved_commit:
+        description: Exact reviewed commit currently at the tip of main
+        required: true
+        type: string
+      confirm_publication:
+        description: Publish this reviewed catalog revision
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: bmc-catalog-publication
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: catalog-production
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Verify the explicitly approved revision
+        env:
+          APPROVED_COMMIT: ${{ inputs.approved_commit }}
+          CONFIRM_PUBLICATION: ${{ inputs.confirm_publication }}
+        run: |
+          if [[ "${CONFIRM_PUBLICATION}" != "true" ]]; then
+            echo "catalog publication was not explicitly confirmed" >&2
+            exit 1
+          fi
+          actual="$(git rev-parse HEAD)"
+          if [[ "${actual}" != "${APPROVED_COMMIT}" ]]; then
+            echo "main is ${actual}, not approved commit ${APPROVED_COMMIT}" >&2
+            exit 1
+          fi
+      - name: Validate catalog and tests
+        run: |
+          python -m pip install uv==0.11.16
+          uv sync --frozen --extra dev
+          uv run --frozen --extra dev python - <<'PY'
+          from pathlib import Path
+          from helix_mcp_knowledge.catalog.products import ProductCatalog
+          from helix_mcp_knowledge.sync.manifest import OfficialSourceManifest
+
+          manifest = OfficialSourceManifest.load(
+              Path("config/sources/bmc-official-26.1.yaml")
+          )
+          if manifest.schema_version != 2 or manifest.catalog_revision < 1:
+              raise SystemExit("only a revisioned schema-2 catalog can be published")
+          ProductCatalog.from_manifest(manifest)
+          print(manifest.catalog_revision)
+          PY
+          uv run --frozen --extra dev ruff check .
+          uv run --frozen --extra dev ruff format --check .
+          uv run --frozen --extra dev pytest
+      - name: Publish immutable checksum-verified catalog release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          manifest="config/sources/bmc-official-26.1.yaml"
+          revision="$(uv run --frozen --extra dev python -c 'from pathlib import Path; from helix_mcp_knowledge.sync.manifest import OfficialSourceManifest; print(OfficialSourceManifest.load(Path("config/sources/bmc-official-26.1.yaml")).catalog_revision)')"
+          tag="catalog-v${revision}"
+          release_dir="$(mktemp -d "${RUNNER_TEMP}/helix-catalog-release.XXXXXX")"
+          expected="$(mktemp "${RUNNER_TEMP}/helix-catalog-expected.XXXXXX")"
+          actual="$(mktemp "${RUNNER_TEMP}/helix-catalog-actual.XXXXXX")"
+          install -m 0644 "${manifest}" "${release_dir}/bmc-official-catalog.yaml"
+          (
+            cd "${release_dir}"
+            sha256sum bmc-official-catalog.yaml > bmc-official-catalog.sha256
+          )
+          find "${release_dir}" -maxdepth 1 -type f -printf '%f\n' | sort -u > "${expected}"
+          if ! git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "${tag}" -m "BMC catalog revision ${revision}"
+            git push origin "refs/tags/${tag}"
+          fi
+          tag_commit="$(git rev-list -n 1 "${tag}")"
+          head_commit="$(git rev-parse HEAD)"
+          if [[ "${tag_commit}" != "${head_commit}" ]]; then
+            echo "catalog tag ${tag} points to ${tag_commit}, not the reviewed commit ${head_commit}" >&2
+            exit 1
+          fi
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            is_draft="$(gh release view "${tag}" --json isDraft --jq '.isDraft')"
+            if [[ "${is_draft}" == "true" ]]; then
+              echo "removing incomplete draft catalog release ${tag} before retry"
+              gh release delete "${tag}" --yes
+            else
+              gh release view "${tag}" --json assets --jq '.assets[].name' \
+                | sort -u > "${actual}"
+              if ! cmp --silent "${expected}" "${actual}"; then
+                echo "catalog release ${tag} has a different asset set" >&2
+                diff --unified "${actual}" "${expected}" || true
+                exit 1
+              fi
+              while IFS= read -r asset; do
+                expected_digest="sha256:$(sha256sum -- "${release_dir}/${asset}" | cut -d' ' -f1)"
+                actual_digest="$(
+                  gh release view "${tag}" --json assets \
+                    --jq ".assets[] | select(.name == \"${asset}\") | .digest"
+                )"
+                if [[ "${actual_digest}" != "${expected_digest}" ]]; then
+                  echo "catalog release ${tag} digest mismatch for ${asset}" >&2
+                  exit 1
+                fi
+              done < "${expected}"
+              echo "catalog release ${tag} already contains the exact verified assets"
+              exit 0
+            fi
+          fi
+          gh release create "${tag}" \
+            --draft \
+            --prerelease \
+            --verify-tag \
+            --title "BMC catalog revision ${revision}" \
+            --notes "Reviewed BMC product and version catalog. Selection and indexing remain user-controlled."
+          gh release upload "${tag}" "${release_dir}"/*
+          gh release view "${tag}" --json assets --jq '.assets[].name' \
+            | sort -u > "${actual}"
+          cmp --silent "${expected}" "${actual}"
+          while IFS= read -r asset; do
+            expected_digest="sha256:$(sha256sum -- "${release_dir}/${asset}" | cut -d' ' -f1)"
+            actual_digest="$(
+              gh release view "${tag}" --json assets \
+                --jq ".assets[] | select(.name == \"${asset}\") | .digest"
+            )"
+            if [[ "${actual_digest}" != "${expected_digest}" ]]; then
+              echo "catalog release ${tag} digest mismatch for ${asset}" >&2
+              exit 1
+            fi
+          done < "${expected}"
+          gh release edit "${tag}" --draft=false --prerelease

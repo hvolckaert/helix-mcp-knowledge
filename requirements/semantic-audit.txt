@@ -1,0 +1,4 @@
+# The shipped CPU wheel has the local-version suffix ``+cpu``, which PyPI's
+# vulnerability API does not recognize. Audit the identical upstream source
+# version explicitly so a local build can never turn into a silent skip.
+torch==2.14.0

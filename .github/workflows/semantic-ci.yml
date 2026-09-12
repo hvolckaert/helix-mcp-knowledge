@@ -1,0 +1,72 @@
+name: Optional semantic acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/semantic-ci.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "requirements/semantic-component.in"
+      - "requirements/semantic-audit.txt"
+      - "src/helix_mcp_knowledge/component_requirements.py"
+      - "src/helix_mcp_knowledge/application.py"
+      - "src/helix_mcp_knowledge/config.py"
+      - "src/helix_mcp_knowledge/resources/requirements/**"
+      - "src/helix_mcp_knowledge/semantic_*.py"
+      - "src/helix_mcp_knowledge/retrieval/**"
+      - "src/helix_mcp_knowledge/storage/vectors.py"
+      - "tests/retrieval/**"
+      - "tests/storage/test_vectors.py"
+      - "tests/unit/test_semantic_*.py"
+  pull_request:
+    paths:
+      - ".github/workflows/semantic-ci.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "requirements/semantic-component.in"
+      - "requirements/semantic-audit.txt"
+      - "src/helix_mcp_knowledge/component_requirements.py"
+      - "src/helix_mcp_knowledge/application.py"
+      - "src/helix_mcp_knowledge/config.py"
+      - "src/helix_mcp_knowledge/resources/requirements/**"
+      - "src/helix_mcp_knowledge/semantic_*.py"
+      - "src/helix_mcp_knowledge/retrieval/**"
+      - "src/helix_mcp_knowledge/storage/vectors.py"
+      - "tests/retrieval/**"
+      - "tests/storage/test_vectors.py"
+      - "tests/unit/test_semantic_*.py"
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  semantic-acceptance:
+    name: semantic-acceptance (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install server, tests, and semantic dependencies
+        run: |
+          python -m pip install uv==0.11.16
+          uv sync --frozen --extra dev
+          uv run --no-sync python -m pip install --find-links https://download.pytorch.org/whl/cpu/torch/ --require-hashes --requirement src/helix_mcp_knowledge/resources/requirements/semantic-component.txt
+      - name: Validate local Qdrant and component contracts
+        run: |
+          uv run --no-sync python -c "import qdrant_client, sentence_transformers, torch, transformers"
+          uv run --no-sync pytest tests/storage/test_vectors.py tests/unit/test_semantic_component.py tests/unit/test_semantic_install_worker.py
+      - name: Audit semantic dependencies
+        if: runner.os == 'Linux'
+        run: |
+          uvx pip-audit==2.10.1 --no-deps --disable-pip -r src/helix_mcp_knowledge/resources/requirements/semantic-component.txt
+          uvx pip-audit==2.10.1 --no-deps --disable-pip -r requirements/semantic-audit.txt

@@ -1,0 +1,15 @@
+- query: reconciliation
+  project: example_project
+  must_return_chunks:
+    - chk_official
+    - chk_example_project
+  must_not_return_projects:
+    - atlas
+
+- query: confidential mapping
+  project: atlas
+  source_scope: project
+  must_return_chunks:
+    - chk_atlas
+  must_not_return_projects:
+    - example_project

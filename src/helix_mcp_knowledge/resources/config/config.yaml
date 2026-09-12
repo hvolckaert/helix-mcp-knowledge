@@ -1,0 +1,128 @@
+server:
+  name: helix-mcp-knowledge
+  transport: stdio
+
+paths:
+  sources: data/sources
+  projects_config: config/projects
+  cache: data/cache
+  errors: data/errors
+  official_manifest: config/sources/bmc-official-26.1.yaml
+
+projects:
+  default_project: null
+  external_document_roots: []
+
+official_docs:
+  automatic_sync: true
+  bootstrap_on_empty: true
+  interval_hours: 24
+  retain_unselected_versions: false
+  products: {}
+
+catalog_updates:
+  enabled: true
+  interval_hours: 24
+  retry_minutes: 30
+  repository: hvolckaert/helix-mcp-knowledge
+  release_prefix: catalog-v
+  manifest_asset: bmc-official-catalog.yaml
+  checksum_asset: bmc-official-catalog.sha256
+  cache_path: data/cache/official-catalog/bmc-official-catalog.yaml
+  gh_command: gh
+  timeout_seconds: 30
+
+updates:
+  enabled: true
+  interval_hours: 24
+  retry_minutes: 15
+  repository: hvolckaert/helix-mcp-knowledge
+  gh_command: gh
+  timeout_seconds: 30
+  retention:
+    enabled: true
+    previous_runtimes: 1
+    successful_backups: 1
+    failed_backup_days: 14
+    diagnostic_days: 30
+    max_log_size_mb: 10
+
+storage:
+  sqlite:
+    path: data/sqlite/helix_mcp_knowledge.db
+  qdrant:
+    url: http://localhost:6333
+    collection: helix_knowledge_chunks
+    api_key_env: QDRANT_API_KEY
+
+embeddings:
+  model: BAAI/bge-m3
+  dimension: 1024
+  batch_size: 32
+  device: null
+  normalize: true
+
+retrieval:
+  default_top_k: 8
+  max_top_k: 20
+  lexical:
+    enabled: true
+  semantic:
+    enabled: false
+  fusion:
+    algorithm: rrf
+    rrf_k: 60
+  exact_match:
+    enabled: true
+  reranker:
+    enabled: false
+    model: BAAI/bge-reranker-v2-m3
+    candidates: 10
+
+ingestion:
+  max_file_size_mb: 100
+  ocr:
+    enabled: false
+    component_path: components/ocr
+    min_text_characters: 40
+    dpi: 200
+    min_confidence: 0.5
+    max_pages_per_document: 200
+    timeout_seconds: 1800
+  watch:
+    enabled: true
+    debounce_seconds: 5
+    poll_seconds: 2
+    lease_seconds: 120
+    retry_seconds: 30
+  chunking:
+    target_tokens: 600
+    max_tokens: 900
+    overlap_tokens: 80
+  allowed_extensions:
+    - .pdf
+    - .docx
+    - .md
+    - .html
+    - .htm
+    - .txt
+  http:
+    timeout_seconds: 30
+    user_agent: helix-mcp-knowledge
+    allowed_domains:
+      - docs.helixops.ai
+    authentication:
+      mode: none
+      username_env: BMC_DOCS_USERNAME
+      password_env: BMC_DOCS_PASSWORD
+      browser:
+        headless: true
+        profile_path: data/cache/bmc-browser-profile
+        login_url: https://docs.helixops.ai/bin/login/XWiki/XWikiLogin
+        challenge_timeout_seconds: 45
+        username_selector: 'input[name="username"], input[name="identifier"], input[type="email"]'
+        password_selector: 'input[name="password"], input[type="password"]'
+        submit_selector: 'button[type="submit"], input[type="submit"]'
+
+logging:
+  level: WARNING

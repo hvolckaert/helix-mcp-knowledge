@@ -1,0 +1,44 @@
+schema_version: 1
+sample_pages: 25
+request_delay_seconds: 0.25
+timeout_seconds: 30
+max_page_bytes: 10485760
+
+# Version discovery is intentionally limited to products with a curated URL
+# template. A completely new product needs one reviewed entry here before the
+# monitor can validate later releases.
+products:
+  cmdb:
+    root_url_template: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac{compact_version}/
+    local_path_prefix_template: cmdb/{version}/discovered
+    max_pages: 1000
+    required_markers: [CMDB, "{version}"]
+    smoke_queries: [CMDB]
+
+  itsm:
+    root_url_template: https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-ITSM/itsm{compact_version}/
+    local_path_prefix_template: itsm/{version}/discovered
+    max_pages: 1500
+    required_markers: [ITSM, "{version}"]
+    smoke_queries: [ITSM]
+
+  arsystem:
+    root_url_template: https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is{compact_version}/
+    local_path_prefix_template: arsystem/{version}/discovered
+    max_pages: 1500
+    required_markers: [Innovation Suite, "{version}"]
+    smoke_queries: [Innovation]
+
+  digital_workplace:
+    root_url_template: https://docs.helixops.ai/bin/Service-Management/Employee-Digital-Workplace/BMC-Helix-Digital-Workplace/dwp{compact_version}/
+    local_path_prefix_template: digital_workplace/{version}/discovered
+    max_pages: 1500
+    required_markers: [Digital Workplace, "{version}"]
+    smoke_queries: [Workplace]
+
+  business_workflows:
+    root_url_template: https://docs.helixops.ai/bin/Service-Management/Enterprise-Service-Management/BMC-Helix-Business-Workflows/bwf{compact_version}/
+    local_path_prefix_template: business_workflows/{version}/discovered
+    max_pages: 1000
+    required_markers: [Business Workflows, "{version}"]
+    smoke_queries: [Workflows]

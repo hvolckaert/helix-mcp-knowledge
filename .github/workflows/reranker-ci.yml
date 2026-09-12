@@ -1,0 +1,100 @@
+name: Optional reranker acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/reranker-ci.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "requirements/reranker-component.in"
+      - "requirements/reranker-audit.txt"
+      - "src/helix_mcp_knowledge/application.py"
+      - "src/helix_mcp_knowledge/component_install_recovery.py"
+      - "src/helix_mcp_knowledge/component_requirements.py"
+      - "src/helix_mcp_knowledge/config.py"
+      - "src/helix_mcp_knowledge/dashboard.py"
+      - "src/helix_mcp_knowledge/evaluation.py"
+      - "src/helix_mcp_knowledge/reranker_*.py"
+      - "src/helix_mcp_knowledge/resources/dashboard/**"
+      - "src/helix_mcp_knowledge/resources/requirements/**"
+      - "src/helix_mcp_knowledge/retrieval/**"
+      - "tests/integration/test_dashboard.py"
+      - "tests/retrieval/**"
+      - "tests/unit/test_component_install_recovery.py"
+      - "tests/unit/test_reranker_*.py"
+  pull_request:
+    paths:
+      - ".github/workflows/reranker-ci.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "requirements/reranker-component.in"
+      - "requirements/reranker-audit.txt"
+      - "src/helix_mcp_knowledge/application.py"
+      - "src/helix_mcp_knowledge/component_install_recovery.py"
+      - "src/helix_mcp_knowledge/component_requirements.py"
+      - "src/helix_mcp_knowledge/config.py"
+      - "src/helix_mcp_knowledge/dashboard.py"
+      - "src/helix_mcp_knowledge/evaluation.py"
+      - "src/helix_mcp_knowledge/reranker_*.py"
+      - "src/helix_mcp_knowledge/resources/dashboard/**"
+      - "src/helix_mcp_knowledge/resources/requirements/**"
+      - "src/helix_mcp_knowledge/retrieval/**"
+      - "tests/integration/test_dashboard.py"
+      - "tests/retrieval/**"
+      - "tests/unit/test_component_install_recovery.py"
+      - "tests/unit/test_reranker_*.py"
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  reranker-acceptance:
+    name: reranker-acceptance (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install server, tests, and reranker dependencies
+        run: |
+          python -m pip install uv==0.11.16
+          uv sync --frozen --extra dev
+          uv run --no-sync python -m pip install --find-links https://download.pytorch.org/whl/cpu/torch/ --require-hashes --requirement src/helix_mcp_knowledge/resources/requirements/reranker-component.txt
+      - name: Validate reranker component and retrieval contracts
+        run: |
+          uv run --no-sync python -c "import torch, transformers"
+          uv run --no-sync pytest tests/retrieval tests/unit/test_reranker_application.py tests/unit/test_reranker_client.py tests/unit/test_reranker_component.py tests/unit/test_reranker_install_worker.py tests/unit/test_reranker_worker.py
+      - name: Audit reranker dependencies
+        if: runner.os == 'Linux'
+        run: |
+          uvx pip-audit==2.10.1 --no-deps --disable-pip -r src/helix_mcp_knowledge/resources/requirements/reranker-component.txt
+          uvx pip-audit==2.10.1 --no-deps --disable-pip -r requirements/reranker-audit.txt
+      - name: Validate the pinned model and real inference
+        if: runner.os == 'Linux' && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/'))
+        run: |
+          uv run --no-sync python - <<'PY'
+          from huggingface_hub import snapshot_download
+
+          from helix_mcp_knowledge.reranker_client import (
+              RERANKER_MODEL_ID,
+              RERANKER_MODEL_REVISION,
+          )
+          from helix_mcp_knowledge.reranker_component import RERANKER_MODEL_FILES
+
+          snapshot_download(
+              repo_id=RERANKER_MODEL_ID,
+              revision=RERANKER_MODEL_REVISION,
+              local_dir=".reranker-model",
+              allow_patterns=RERANKER_MODEL_FILES,
+          )
+          PY
+          uv run --no-sync python -m helix_mcp_knowledge.reranker_worker --self-test --model-path .reranker-model
