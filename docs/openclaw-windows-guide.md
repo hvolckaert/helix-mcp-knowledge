@@ -39,7 +39,7 @@ If OpenClaw is installed, also run `openclaw.cmd --version` and
 Use `openclaw.cmd`, not `openclaw.ps1`, so installation is independent of the
 PowerShell script-execution policy.
 
-## 3. Clean installation of v1.28.1
+## 3. Clean installation of v1.29.0
 
 ### Recommended automated installation
 
@@ -47,15 +47,15 @@ From a checkout of this version, the installer downloads the wheel, verifies
 its GitHub SHA-256, creates an isolated runtime, and registers the server:
 
 ```powershell
-.\scripts\install-windows.ps1 -Version 1.28.1
+.\scripts\install-windows.ps1 -Version 1.29.0
 ```
 
 For controlled installations or tests, provide a local wheel:
 
 ```powershell
 .\scripts\install-windows.ps1 `
-  -Version 1.28.1 `
-  -WheelPath C:\Temp\helix_mcp_knowledge-1.28.1-py3-none-any.whl `
+  -Version 1.29.0 `
+  -WheelPath C:\Temp\helix_mcp_knowledge-1.29.0-py3-none-any.whl `
   -RequirementsPath C:\Temp\runtime-requirements.txt
 ```
 
@@ -76,7 +76,7 @@ an unattended installation:
 
 ```powershell
 .\scripts\install-windows.ps1 `
-  -Version 1.28.1 `
+  -Version 1.29.0 `
   -Product @('cmdb=26.3', 'discovery=current')
 ```
 
@@ -100,7 +100,7 @@ Open PowerShell as the same user that runs OpenClaw and define persistent
 paths:
 
 ```powershell
-$HelixVersion = "1.28.1"
+$HelixVersion = "1.29.0"
 $HelixHome = Join-Path $env:LOCALAPPDATA "helix-mcp-knowledge"
 $HelixRuntime = Join-Path $HelixHome "runtime\$HelixVersion"
 $HelixDownload = Join-Path $HelixHome "downloads\$HelixVersion"
@@ -187,7 +187,7 @@ change products, versions, synchronization frequency, and to create, remove, or
 configure private projects and their document folders without editing YAML:
 
 ```powershell
-& "$env:LOCALAPPDATA\helix-mcp-knowledge\runtime\1.28.1\venv\Scripts\helix-mcp-knowledge.exe" `
+& "$env:LOCALAPPDATA\helix-mcp-knowledge\runtime\1.29.0\venv\Scripts\helix-mcp-knowledge.exe" `
   --config "$env:LOCALAPPDATA\helix-mcp-knowledge\config\config.yaml" `
   dashboard
 ```
@@ -372,7 +372,7 @@ activate the latest stable release:
   --openclaw-command $OpenClawCommand
 ```
 
-Use `--version 1.28.1` to pin a release. The updater requires authenticated
+Use `--version 1.29.0` to pin a release. The updater requires authenticated
 `gh`, verifies the published SHA-256, installs a versioned runtime, backs up
 configuration, SQLite, and the stable launcher, and runs the smoke test. It
 then switches the stable launcher. For OpenClaw-managed installations it also
@@ -399,7 +399,7 @@ openclaw.cmd gateway restart
 openclaw.cmd mcp probe helix_knowledge --json
 ```
 
-Versions 1.0.x do not include `update`. Install v1.28.1 once in a parallel
+Versions 1.0.x do not include `update`. Install v1.29.0 once in a parallel
 runtime while retaining the same workspace; subsequent upgrades can use the
 integrated updater.
 

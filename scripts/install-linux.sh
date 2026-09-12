@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="1.28.1"
+VERSION="1.29.0"
 REPOSITORY="hvolckaert/helix-mcp-knowledge"
 INSTALL_ROOT="${XDG_DATA_HOME:-${HOME:?HOME is not defined}/.local/share}/helix-mcp-knowledge"
 WHEEL_PATH=""
@@ -22,13 +22,13 @@ OPEN_DASHBOARD=1
 
 usage() {
   cat <<'EOF'
-Install helix-mcp-knowledge from a verified private GitHub release.
+Install helix-mcp-knowledge from a verified GitHub release.
 
 Usage: install-linux.sh [options]
 
 Options:
-  --version VERSION          Release version (default: 1.28.1)
-  --repository OWNER/REPO   Private GitHub repository
+  --version VERSION          Release version (default: 1.29.0)
+  --repository OWNER/REPO   GitHub repository
   --install-root PATH       Persistent workspace and runtime root
   --wheel PATH              Use a caller-provided wheel instead of downloading
   --requirements PATH       Locked requirements used with a caller-provided wheel

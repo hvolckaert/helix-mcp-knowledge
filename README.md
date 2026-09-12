@@ -38,7 +38,7 @@ dashboard when you are ready to select an authorised product and version.
 
 ## Release status
 
-Version 1.28.1 provides:
+Version 1.29.0 provides:
 
 - validated YAML configuration and Pydantic domain models;
 - project registration and active-project resolution;
@@ -166,7 +166,7 @@ On first run it creates a per-user workspace containing a generic configuration,
 the supported official catalog, and the index directories.
 
 ```bash
-python -m pip install helix_mcp_knowledge-1.28.1-py3-none-any.whl
+python -m pip install helix_mcp_knowledge-1.29.0-py3-none-any.whl
 helix-mcp-knowledge install
 ```
 
@@ -226,22 +226,22 @@ acceptance, updates, and rollback:
 Windows:
 
 ```powershell
-.\scripts\install-windows.ps1 -Version 1.28.1
+.\scripts\install-windows.ps1 -Version 1.29.0
 ```
 
 WSL or Linux from a checkout:
 
 ```bash
-./scripts/install-linux.sh --version 1.28.1
+./scripts/install-linux.sh --version 1.29.0
 ```
 
 WSL or Linux directly from the GitHub release:
 
 ```bash
-gh release download v1.28.1 \
+gh release download v1.29.0 \
   --repo hvolckaert/helix-mcp-knowledge \
   --pattern install-linux.sh \
-  --output - | bash -s -- --version 1.28.1
+  --output - | bash -s -- --version 1.29.0
 ```
 
 Both installers create a working MCP server with no products selected. Their
@@ -257,7 +257,7 @@ products for an unattended installation. Repeat the option to retain multiple
 versions:
 
 ```bash
-./scripts/install-linux.sh --version 1.28.1 \
+./scripts/install-linux.sh --version 1.29.0 \
   --product cmdb=26.3 \
   --product discovery=current
 ```
