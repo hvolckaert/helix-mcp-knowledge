@@ -42,7 +42,8 @@ Version 1.29.0 provides:
 
 - validated YAML configuration and Pydantic domain models;
 - project registration and active-project resolution;
-- SQLite as the source of truth, with FTS5 lexical search;
+- SQLite as the source of truth, with FTS5 lexical search and bounded Spanish-to-English
+  Helix terminology expansion;
 - structural parsers for PDF, DOCX, HTML, Markdown, and plain text;
 - heading-aware chunking with block types, limits, overlap, and provenance;
 - idempotent ingestion and atomic replacement of documents, chunks, and FTS5 data;
