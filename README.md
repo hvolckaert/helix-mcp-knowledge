@@ -46,6 +46,12 @@ For the first complete two-server workflow, use the
 establishes versioned documentary expectations, Gateway prepares a bounded synthetic DEV
 read, and the agent waits for explicit approval in a later turn before executing it.
 
+The
+[integrated controlled-update case](docs/integrated-controlled-update-case.md) adds one
+governed synthetic DEV write. Knowledge establishes the official and project authority
+chain; Gateway binds the exact proposal to a later approval, checks current state, applies
+once, and verifies the result.
+
 ## Release status
 
 Version 1.31.0 provides:
