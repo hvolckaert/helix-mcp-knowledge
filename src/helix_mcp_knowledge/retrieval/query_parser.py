@@ -102,6 +102,11 @@ _SPANISH_PHRASE_TO_ENGLISH = {
     # BMC's canonical CMDB term for a reliable reconciled dataset.
     "conjunto de datos fiable": ("golden", "dataset"),
 }
+_CMDB_DUPLICATE_TERMS = frozenset({"duplicate", "duplicates"})
+_CMDB_CI_TERMS = frozenset({"ci", "cis"})
+_CMDB_RECONCILIATION_INTENT = frozenset(
+    {"conflict", "conflicting", "resolve", "resolves", "resolving", "trusted"}
+)
 
 
 def query_tokens(query: str) -> list[str]:
@@ -112,18 +117,20 @@ def query_tokens(query: str) -> list[str]:
 
 
 def expand_lexical_tokens(query: str) -> list[str]:
-    """Add bounded English Helix terms when the input is recognizably Spanish."""
+    """Add bounded canonical Helix terms for recognized query intents."""
 
     tokens = query_tokens(query)
     folded = [_fold_token(token) for token in tokens]
+    expanded = list(tokens)
+    seen = {token.casefold() for token in tokens}
+    _append_cmdb_reconciliation_terms(expanded, seen, folded)
+
     hint_count = len(set(folded) & _SPANISH_HINTS)
     has_spanish_punctuation = "¿" in query or "¡" in query
     has_spanish_character = any(character in query.casefold() for character in "áéíóúñü")
     if not (has_spanish_punctuation or has_spanish_character or hint_count >= 2):
-        return tokens
+        return expanded
 
-    expanded = list(tokens)
-    seen = {token.casefold() for token in tokens}
     folded_query = _fold_token(query)
     for phrase, translations in _SPANISH_PHRASE_TO_ENGLISH.items():
         if phrase in folded_query:
@@ -155,3 +162,19 @@ def _append_unseen(expanded: list[str], seen: set[str], translations: tuple[str,
         if translation.casefold() not in seen:
             seen.add(translation.casefold())
             expanded.append(translation)
+
+
+def _append_cmdb_reconciliation_terms(
+    expanded: list[str], seen: set[str], folded: list[str]
+) -> None:
+    terms = set(folded)
+    describes_duplicate_cis = bool(terms & _CMDB_DUPLICATE_TERMS) and bool(terms & _CMDB_CI_TERMS)
+    uses_noncanonical_intent = bool(terms & _CMDB_RECONCILIATION_INTENT)
+    if not describes_duplicate_cis or not uses_noncanonical_intent or "reconciliation" in terms:
+        return
+
+    _append_unseen(expanded, seen, ("reconciliation", "merge", "merging"))
+    if "trusted" in terms:
+        _append_unseen(expanded, seen, ("reliable",))
+    if "production" in terms:
+        _append_unseen(expanded, seen, ("dataset",))
