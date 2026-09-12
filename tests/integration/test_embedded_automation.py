@@ -143,6 +143,7 @@ def test_dashboard_request_is_consumed_when_automatic_watching_is_disabled(
             lambda: (
                 calls == ["example_project"]
                 and store.state("project:example_project").get("status") == "ok"
+                and not manual_only.is_leader
             )
         )
         state = store.state("project:example_project")
