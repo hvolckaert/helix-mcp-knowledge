@@ -5,7 +5,12 @@ from types import SimpleNamespace
 import pytest
 
 from helix_mcp_knowledge.errors import ConfigurationError
-from helix_mcp_knowledge.evaluation import evaluate_retrieval, load_evaluation_cases
+from helix_mcp_knowledge.evaluation import (
+    evaluate_retrieval,
+    load_evaluation_cases,
+    load_evaluation_dataset,
+    render_evaluation_markdown,
+)
 
 
 class FakeEngine:
@@ -320,6 +325,17 @@ def test_evaluation_rejects_empty_expected_term_values(tmp_path: Path, value: st
         load_evaluation_cases(dataset, top_k=5)
 
 
+def test_evaluation_rejects_empty_expected_document_id(tmp_path: Path) -> None:
+    dataset = tmp_path / "empty-document-id.json"
+    dataset.write_text(
+        json.dumps([{"query": "reconciliation", "expected_document_ids": ["  "]}]),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigurationError, match="empty expected_document_ids"):
+        load_evaluation_cases(dataset, top_k=5)
+
+
 def test_evaluation_rotates_timed_mode_order_after_warmup(tmp_path: Path) -> None:
     dataset = tmp_path / "rotating.json"
     dataset.write_text(
@@ -358,3 +374,117 @@ def test_evaluation_rotates_timed_mode_order_after_warmup(tmp_path: Path) -> Non
         ["baseline", "reranked", "lexical"],
         ["reranked", "lexical", "baseline"],
     ]
+
+
+def test_versioned_dataset_records_metadata_fingerprint_and_slices(tmp_path: Path) -> None:
+    dataset_path = tmp_path / "evaluation.json"
+    dataset_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "name": "Synthetic baseline",
+                "description": "No third-party source text.",
+                "cases": [
+                    {
+                        "case_id": "concept-en-001",
+                        "name": "Conceptual wording",
+                        "category": "concept",
+                        "difficulty": "medium",
+                        "language": "EN",
+                        "query": "data consistency jobs",
+                        "expected_terms": ["normalization", "reconciliation"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    dataset = load_evaluation_dataset(dataset_path, top_k=5)
+    report = evaluate_retrieval(FakeEngine(), dataset)
+
+    assert dataset.name == "Synthetic baseline"
+    assert len(dataset.sha256) == 64
+    assert dataset.cases[0].case_id == "concept-en-001"
+    assert dataset.cases[0].language == "en"
+    assert report["dataset"] == {
+        "name": "Synthetic baseline",
+        "description": "No third-party source text.",
+        "schema_version": 1,
+        "sha256": dataset.sha256,
+        "source": "evaluation.json",
+    }
+    assert report["summary"]["quality"]["lexical"] == {
+        "hits": 0,
+        "hit_rate_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_at_k": 0.0,
+        "ndcg_at_k": 0.0,
+    }
+    assert report["summary"]["quality"]["baseline"]["hit_rate_at_k"] == 1.0
+    assert report["summary"]["slices"]["category"]["concept"]["total"] == 1
+    assert report["summary"]["slices"]["difficulty"]["medium"]["quality"]["baseline"]["mrr"] == 1.0
+
+    markdown = render_evaluation_markdown(report)
+    assert "# Retrieval evaluation: Synthetic baseline" in markdown
+    assert f"Dataset SHA-256: `{dataset.sha256}`" in markdown
+    assert "| baseline | 1 | 1 | 1 | 1 | 1 |" in markdown
+    assert "normalization and reconciliation" not in markdown
+
+
+def test_versioned_dataset_rejects_duplicate_case_ids(tmp_path: Path) -> None:
+    dataset = tmp_path / "duplicate.json"
+    dataset.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "name": "Duplicates",
+                "cases": [
+                    {
+                        "case_id": "same",
+                        "query": "first",
+                        "expected_terms": ["first"],
+                    },
+                    {
+                        "case_id": "same",
+                        "query": "second",
+                        "expected_terms": ["second"],
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigurationError, match="case_id must be unique"):
+        load_evaluation_dataset(dataset, top_k=5)
+
+
+def test_versioned_dataset_rejects_unknown_schema_and_difficulty(tmp_path: Path) -> None:
+    dataset = tmp_path / "invalid.json"
+    dataset.write_text(
+        json.dumps({"schema_version": 2, "name": "Future", "cases": []}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigurationError, match="schema_version must be 1"):
+        load_evaluation_dataset(dataset, top_k=5)
+
+    dataset.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "name": "Bad difficulty",
+                "cases": [
+                    {
+                        "case_id": "bad",
+                        "difficulty": "impossible",
+                        "query": "test",
+                        "expected_terms": ["test"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigurationError, match="difficulty must be easy, medium, or hard"):
+        load_evaluation_dataset(dataset, top_k=5)

@@ -18,7 +18,11 @@ from ..dashboard import DEFAULT_DASHBOARD_PORT, run_dashboard
 from ..dashboard_runtime import DashboardRuntimeManager
 from ..diagnostics import run_smoke_test
 from ..errors import KnowledgeError
-from ..evaluation import evaluate_retrieval, load_evaluation_cases
+from ..evaluation import (
+    evaluate_retrieval,
+    load_evaluation_dataset,
+    render_evaluation_markdown,
+)
 from ..logging import configure_logging
 from ..managed_installation import (
     ManagedInstallation,
@@ -282,6 +286,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evaluate.add_argument("dataset", help="JSON evaluation dataset")
     evaluate.add_argument("--top-k", type=int, default=10)
+    evaluate.add_argument(
+        "--format",
+        choices=("json", "markdown"),
+        default="json",
+        help="Report format (default: json)",
+    )
+    evaluate.add_argument("--output", help="Write the report to this file instead of stdout")
     return parser
 
 
@@ -467,14 +478,45 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "projects":
             print(application.list_projects(args.include_archived).model_dump_json(indent=2))
         elif args.command == "evaluate-retrieval":
-            cases = load_evaluation_cases(args.dataset, top_k=args.top_k)
-            print(
-                json.dumps(
-                    evaluate_retrieval(application.search_engine, cases),
-                    ensure_ascii=False,
-                    indent=2,
-                )
+            dataset = load_evaluation_dataset(args.dataset, top_k=args.top_k)
+            report = evaluate_retrieval(application.search_engine, dataset)
+            database_status = application.database.status()
+            report["runtime"] = {
+                "helix_mcp_knowledge_version": __version__,
+                "index": {
+                    "schema_version": database_status["schema_version"],
+                    "counts": database_status["counts"],
+                    "sqlite_bytes": application.database.path.stat().st_size,
+                },
+                "retrieval": {
+                    "lexical_enabled": application.config.retrieval.lexical.enabled,
+                    "semantic_enabled": application.config.retrieval.semantic.enabled,
+                    "reranker_enabled": application.config.retrieval.reranker.enabled,
+                },
+            }
+            rendered = (
+                render_evaluation_markdown(report)
+                if args.format == "markdown"
+                else json.dumps(report, ensure_ascii=False, indent=2) + "\n"
             )
+            if args.output:
+                output = Path(args.output).expanduser().resolve()
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text(rendered, encoding="utf-8")
+                print(
+                    json.dumps(
+                        {
+                            "status": "written",
+                            "format": args.format,
+                            "output": str(output),
+                            "dataset_sha256": dataset.sha256,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                )
+            else:
+                print(rendered, end="")
         return 0
     except (KnowledgeError, ValueError) as exc:
         parser = build_parser()

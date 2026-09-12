@@ -508,29 +508,44 @@ Quality can be measured with a repeatable JSON evidence set instead of relying
 on anecdotal searches:
 
 ```json
-[
-  {
-    "name": "CMDB data consistency",
-    "query": "How are duplicate configuration items prevented?",
-    "product": "cmdb",
-    "version": "26.1",
-    "source_scope": "bmc_official",
-    "expected_terms": ["normalization", "reconciliation"]
-  }
-]
+{
+  "schema_version": 1,
+  "name": "Private BMC retrieval baseline 1",
+  "description": "Relevance judgments reviewed before execution.",
+  "cases": [
+    {
+      "case_id": "cmdb-concept-en-001",
+      "name": "CMDB data consistency",
+      "category": "concept",
+      "difficulty": "medium",
+      "language": "en",
+      "query": "How are duplicate configuration items prevented?",
+      "product": "cmdb",
+      "version": "26.1",
+      "source_scope": "bmc_official",
+      "expected_terms": ["normalization", "reconciliation"]
+    }
+  ]
+}
 ```
 
 ```bash
-helix-mcp-knowledge evaluate-retrieval evaluation.json --top-k 10
+helix-mcp-knowledge evaluate-retrieval evaluation.json --top-k 10 \
+  --format markdown --output evaluation-report.md
 ```
 
 The report compares lexical, configured baseline, and reranked retrieval. It reports
-hit count, mean reciprocal rank, Recall@k, nDCG@k, and p50/p95 latency. Evaluation
+Hit Rate@k, mean reciprocal rank, Recall@k, nDCG@k, and p50/p95 latency, including
+JSON slices by category, difficulty, and language. The exact dataset is identified by
+SHA-256 and the report records index counts and enabled retrieval modes. Evaluation
 warms every mode once and rotates their timed order between cases to reduce cold-start
 and cache-order bias. Each case must identify expected evidence using either
 `expected_terms` or `expected_document_ids`, never both. A reranked comparison is
 marked valid only when the optional backend actually scores every non-empty case;
 otherwise its aggregate comparison metrics are `null` with actionable status guidance.
+The [evaluation workspace](evaluation/README.md) includes a fictional corpus, a
+ten-question executable sample, and the target composition for the private 30-question
+BMC baseline. Review provenance before publishing any real question or relevance judgment.
 
 ### Optional result reranking
 

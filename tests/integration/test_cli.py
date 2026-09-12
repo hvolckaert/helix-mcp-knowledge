@@ -77,6 +77,58 @@ def test_cli_reports_missing_evaluation_dataset_without_traceback(
     assert "could not read evaluation dataset" in capsys.readouterr().err
 
 
+def test_cli_writes_retrieval_evaluation_markdown(config_path: Path, capsys) -> None:
+    dataset = config_path.parent.parent / "synthetic-evaluation.json"
+    dataset.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "name": "Synthetic CLI baseline",
+                "description": "Safe generated evidence only.",
+                "cases": [
+                    {
+                        "case_id": "missing-001",
+                        "category": "concept",
+                        "difficulty": "easy",
+                        "language": "en",
+                        "query": "synthetic evidence marker",
+                        "expected_terms": ["synthetic marker"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = config_path.parent.parent / "reports/evaluation.md"
+
+    exit_code = main(
+        [
+            "--config",
+            str(config_path),
+            "evaluate-retrieval",
+            str(dataset),
+            "--top-k",
+            "5",
+            "--format",
+            "markdown",
+            "--output",
+            str(output),
+        ]
+    )
+
+    result = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert result["status"] == "written"
+    assert result["format"] == "markdown"
+    assert len(result["dataset_sha256"]) == 64
+    markdown = output.read_text(encoding="utf-8")
+    assert "# Retrieval evaluation: Synthetic CLI baseline" in markdown
+    assert "| missing-001 | concept | easy | en |" in markdown
+    assert "## Runtime" in markdown
+    assert "SQLite bytes:" in markdown
+    assert str(config_path.parent.parent) not in markdown
+
+
 def test_cli_syncs_project_manifest(config_path: Path, capsys) -> None:
     project_path = config_path.parent / "projects/example_project.yaml"
     project_path.write_text(
