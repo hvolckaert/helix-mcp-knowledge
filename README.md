@@ -54,7 +54,7 @@ once, and verifies the result.
 
 ## Release status
 
-Version 1.31.0 provides:
+Version 1.31.1 provides:
 
 - validated YAML configuration and Pydantic domain models;
 - project registration and active-project resolution;
@@ -133,6 +133,8 @@ Version 1.31.0 provides:
   without changing the user's current selection;
 - checksum-verified catalog updates distributed independently from the server
   runtime, without enabling or indexing new versions automatically;
+- anonymous public discovery and download of runtime and catalog releases, with
+  local attestation verification and no GitHub token forwarding;
 - scheduled BMC version detection with bounded navigation, temporary FTS5
   indexing, and review-only pull requests;
 - size-limited catalog probes with manual, authority-preserving redirect validation;
@@ -183,7 +185,7 @@ On first run it creates a per-user workspace containing a generic configuration,
 the supported official catalog, and the index directories.
 
 ```bash
-python -m pip install helix_mcp_knowledge-1.31.0-py3-none-any.whl
+python -m pip install helix_mcp_knowledge-1.31.1-py3-none-any.whl
 helix-mcp-knowledge install
 ```
 
@@ -249,13 +251,13 @@ locally. Do not run `gh auth login` for Knowledge updates.
 Windows:
 
 ```powershell
-.\scripts\install-windows.ps1 -Version 1.31.0
+.\scripts\install-windows.ps1 -Version 1.31.1
 ```
 
 WSL or Linux from a checkout:
 
 ```bash
-./scripts/install-linux.sh --version 1.31.0
+./scripts/install-linux.sh --version 1.31.1
 ```
 
 Both installers create a working MCP server with no products selected. Their
@@ -271,7 +273,7 @@ products for an unattended installation. Repeat the option to retain multiple
 versions:
 
 ```bash
-./scripts/install-linux.sh --version 1.31.0 \
+./scripts/install-linux.sh --version 1.31.1 \
   --product cmdb=26.3 \
   --product discovery=current
 ```
