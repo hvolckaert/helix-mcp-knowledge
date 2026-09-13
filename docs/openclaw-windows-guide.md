@@ -22,15 +22,16 @@ not install a Windows service and requires no administrator rights.
 - PowerShell 7 recommended.
 - Python 3.12 or later with the `py` launcher.
 - OpenClaw is optional and provides the recommended automatic MCP integration.
-- GitHub CLI (`gh`) authenticated for release download and update checks.
+- A recent GitHub CLI (`gh`) with `gh attestation verify`; authentication is not
+  required for this public repository.
 - HTTPS access to `docs.helixops.ai`.
 
 Verify the environment:
 
 ```powershell
 py -3.12 --version
-gh auth status
-gh repo view hvolckaert/helix-mcp-knowledge
+gh --version
+gh attestation verify --help
 ```
 
 If OpenClaw is installed, also run `openclaw.cmd --version` and
@@ -43,8 +44,9 @@ PowerShell script-execution policy.
 
 ### Recommended automated installation
 
-From a checkout of this version, the installer downloads the wheel, verifies
-its GitHub SHA-256, creates an isolated runtime, and registers the server:
+From a checkout of this version, the installer downloads the wheel through the
+public release endpoint, verifies its GitHub SHA-256 and signed provenance,
+creates an isolated runtime, and registers the server:
 
 ```powershell
 .\scripts\install-windows.ps1 -Version 1.31.0
@@ -108,14 +110,16 @@ $HelixDownload = Join-Path $HelixHome "downloads\$HelixVersion"
 New-Item -ItemType Directory -Force -Path $HelixRuntime, $HelixDownload | Out-Null
 ```
 
-Download the official wheel from the GitHub release:
+Download the official wheel and locked requirements from the public GitHub release:
 
 ```powershell
-gh release download "v$HelixVersion" `
-  --repo hvolckaert/helix-mcp-knowledge `
-  --pattern "*.whl" `
-  --pattern "runtime-requirements.txt" `
-  --dir $HelixDownload
+$HelixWheelName = "helix_mcp_knowledge-$HelixVersion-py3-none-any.whl"
+Invoke-WebRequest `
+  -Uri "https://github.com/hvolckaert/helix-mcp-knowledge/releases/download/v$HelixVersion/$HelixWheelName" `
+  -OutFile (Join-Path $HelixDownload $HelixWheelName)
+Invoke-WebRequest `
+  -Uri "https://github.com/hvolckaert/helix-mcp-knowledge/releases/download/v$HelixVersion/runtime-requirements.txt" `
+  -OutFile (Join-Path $HelixDownload "runtime-requirements.txt")
 ```
 
 Create a versioned runtime and install the package:
@@ -338,8 +342,9 @@ result as `release_update`; agents can call `get_update_status` with
 `refresh=true` for an immediate read-only check.
 
 Use the `updates` section in `config\config.yaml` to change the interval,
-disable checks, or set an absolute path to `gh.exe`. Network or authentication
-errors never block search or MCP startup.
+disable checks, or set an absolute path to `gh.exe`. Public-endpoint errors never
+block search or MCP startup. `gh` is used only when installing an update to
+verify the anonymously downloaded attestation bundles locally.
 
 ## 7. Private projects
 
@@ -372,9 +377,12 @@ activate the latest stable release:
   --openclaw-command $OpenClawCommand
 ```
 
-Use `--version 1.31.0` to pin a release. The updater requires authenticated
-`gh`, verifies the published SHA-256, installs a versioned runtime, backs up
-configuration, SQLite, and the stable launcher, and runs the smoke test. It
+Use `--version 1.31.0` to pin a release. The updater requires `gh attestation
+verify` but no GitHub login. It obtains metadata, assets, and attestation bundles
+from anonymous public endpoints, does not forward `GH_TOKEN` or `GITHUB_TOKEN`,
+verifies the published SHA-256 and provenance locally, installs a versioned
+runtime, backs up configuration, SQLite, and the stable launcher, and runs the
+smoke test. It
 then switches the stable launcher. For OpenClaw-managed installations it also
 backs up and switches the MCP definition and probes all nine tools. Any failure
 restores the previous data, launcher, and applicable registration automatically.

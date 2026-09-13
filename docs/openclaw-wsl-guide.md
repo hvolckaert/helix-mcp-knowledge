@@ -9,15 +9,16 @@ first synchronization, acceptance checks, transactional updates, and rollback.
 - WSL with an active Linux distribution, or a supported Linux host.
 - Python 3.12 or later with virtual-environment support.
 - OpenClaw is optional and provides the recommended automatic MCP integration.
-- GitHub CLI (`gh`) authenticated for release download and update checks.
+- A recent GitHub CLI (`gh`) with `gh attestation verify`; authentication is not
+  required for this public repository.
 - HTTPS access to `docs.helixops.ai`.
 
 Verify the environment:
 
 ```bash
 python3 --version
-gh auth status
-gh repo view hvolckaert/helix-mcp-knowledge
+gh --version
+gh attestation verify --help
 ```
 
 If OpenClaw is installed, also run `openclaw --version`.
@@ -33,16 +34,6 @@ From a checkout of this version:
 
 ```bash
 ./scripts/install-linux.sh --version 1.31.0
-```
-
-You can also run the installer attached to the release without cloning
-the repository:
-
-```bash
-gh release download v1.31.0 \
-  --repo hvolckaert/helix-mcp-knowledge \
-  --pattern install-linux.sh \
-  --output - | bash -s -- --version 1.31.0
 ```
 
 By default, the installer selects no products. It creates a usable MCP server
@@ -86,14 +77,14 @@ export HELIX_KNOWLEDGE_DOWNLOAD="$HELIX_KNOWLEDGE_HOME/downloads/$HELIX_KNOWLEDG
 mkdir -p "$HELIX_KNOWLEDGE_RUNTIME" "$HELIX_KNOWLEDGE_DOWNLOAD"
 ```
 
-Download the wheel from the GitHub release:
+Download the wheel and locked requirements from the public GitHub release:
 
 ```bash
-gh release download "v$HELIX_KNOWLEDGE_VERSION" \
-  --repo hvolckaert/helix-mcp-knowledge \
-  --pattern '*.whl' \
-  --pattern 'runtime-requirements.txt' \
-  --dir "$HELIX_KNOWLEDGE_DOWNLOAD"
+curl --fail --location --output \
+  "$HELIX_KNOWLEDGE_DOWNLOAD/helix_mcp_knowledge-$HELIX_KNOWLEDGE_VERSION-py3-none-any.whl" \
+  "https://github.com/hvolckaert/helix-mcp-knowledge/releases/download/v$HELIX_KNOWLEDGE_VERSION/helix_mcp_knowledge-$HELIX_KNOWLEDGE_VERSION-py3-none-any.whl"
+curl --fail --location --output "$HELIX_KNOWLEDGE_DOWNLOAD/runtime-requirements.txt" \
+  "https://github.com/hvolckaert/helix-mcp-knowledge/releases/download/v$HELIX_KNOWLEDGE_VERSION/runtime-requirements.txt"
 ```
 
 Create an isolated runtime and install the package:
@@ -320,8 +311,9 @@ current_version, latest_version, and update_available. Do not install anything.
 ```
 
 Use the `updates` section in `config/config.yaml` to change the interval,
-disable checks, or set an absolute `gh_command`. Network or authentication
-failures do not block search or MCP startup.
+disable checks, or set an absolute `gh_command`. Public-endpoint failures do not
+block search or MCP startup. `gh` is used only when installing an update to
+verify the anonymously downloaded attestation bundles locally.
 
 ## 6. Private projects
 
@@ -357,9 +349,12 @@ activate the latest stable release:
   update --openclaw-command /usr/bin/openclaw
 ```
 
-Use `--version 1.31.0` to pin a release. The updater requires an authenticated
-`gh`, verifies the published SHA-256, installs a versioned runtime, backs up
-configuration, SQLite, and the stable launcher, and runs the smoke test. It
+Use `--version 1.31.0` to pin a release. The updater requires `gh attestation
+verify` but no GitHub login. It obtains metadata, assets, and attestation bundles
+from anonymous public endpoints, does not forward `GH_TOKEN` or `GITHUB_TOKEN`,
+verifies the published SHA-256 and provenance locally, installs a versioned
+runtime, backs up configuration, SQLite, and the stable launcher, and runs the
+smoke test. It
 then switches the stable launcher. For OpenClaw-managed installations it also
 backs up and switches the MCP definition and probes all nine tools. Any failure
 restores the previous data, launcher, and applicable registration automatically.

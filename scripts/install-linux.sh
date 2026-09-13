@@ -232,46 +232,98 @@ else
   REQUIREMENTS_NAME="runtime-requirements.txt"
   REQUIREMENTS="$DOWNLOAD/$REQUIREMENTS_NAME"
   mkdir -p -- "$DOWNLOAD"
-  "$GH" release download "$RELEASE_TAG" \
-    --repo "$REPOSITORY" \
-    --pattern "$ASSET_NAME" \
-    --output "$WHEEL" \
-    --clobber
-  "$GH" release download "$RELEASE_TAG" \
-    --repo "$REPOSITORY" \
-    --pattern "$REQUIREMENTS_NAME" \
-    --output "$REQUIREMENTS" \
-    --clobber
+  env -u GH_TOKEN -u GITHUB_TOKEN "$PYTHON" - "$REPOSITORY" "$RELEASE_TAG" "$DOWNLOAD" \
+    "$ASSET_NAME" "$REQUIREMENTS_NAME" <<'PY'
+import hashlib
+import json
+import os
+import pathlib
+import sys
+import tempfile
+import urllib.request
+
+repository, tag, download, *asset_names = sys.argv[1:]
+download_path = pathlib.Path(download)
+headers = {
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "helix-mcp-knowledge-installer",
+}
+
+
+def request(url: str):
+    return urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=300)
+
+
+with request(f"https://api.github.com/repos/{repository}/releases/tags/{tag}") as response:
+    release = json.load(response)
+if release.get("draft") or release.get("prerelease") or release.get("tag_name") != tag:
+    raise SystemExit("GitHub returned an invalid or non-stable release")
+
+for asset_name in asset_names:
+    matching = [asset for asset in release.get("assets", []) if asset.get("name") == asset_name]
+    if len(matching) != 1 or not str(matching[0].get("digest", "")).startswith("sha256:"):
+        raise SystemExit(f"release digest was not found for {asset_name}")
+    expected = matching[0]["digest"].removeprefix("sha256:").lower()
+    if len(expected) != 64 or any(character not in "0123456789abcdef" for character in expected):
+        raise SystemExit(f"release digest was invalid for {asset_name}")
+    destination = download_path / asset_name
+    if destination.is_symlink():
+        raise SystemExit(f"release asset cannot be a link: {destination}")
+    with tempfile.NamedTemporaryFile(dir=download_path, prefix=".download-", delete=False) as output:
+        temporary = pathlib.Path(output.name)
+        digest = hashlib.sha256()
+        size = 0
+        try:
+            with request(
+                f"https://github.com/{repository}/releases/download/{tag}/{asset_name}"
+            ) as response:
+                while block := response.read(1024 * 1024):
+                    size += len(block)
+                    if size > 256 * 1024 * 1024:
+                        raise SystemExit(f"release asset is too large: {asset_name}")
+                    digest.update(block)
+                    output.write(block)
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+    if digest.hexdigest() != expected:
+        temporary.unlink(missing_ok=True)
+        raise SystemExit(f"release digest mismatch for {asset_name}")
+    os.replace(temporary, destination)
+    with request(
+        f"https://api.github.com/repos/{repository}/attestations/sha256:{expected}"
+    ) as response:
+        provenance = json.load(response)
+    bundles = [
+        item.get("bundle")
+        for item in provenance.get("attestations", [])
+        if isinstance(item, dict) and isinstance(item.get("bundle"), dict)
+    ]
+    if not bundles:
+        raise SystemExit(f"release asset has no verifiable provenance: {asset_name}")
+    bundle_path = download_path / f".{asset_name}.attestations.jsonl"
+    bundle_path.write_text(
+        "".join(json.dumps(bundle, separators=(",", ":")) + "\n" for bundle in bundles),
+        encoding="utf-8",
+    )
+PY
   [[ -f "$WHEEL" && ! -L "$WHEEL" ]] || fail "downloaded wheel was not found: $WHEEL"
-  EXPECTED_DIGEST="$(
-    "$GH" release view "$RELEASE_TAG" \
-      --repo "$REPOSITORY" \
-      --json assets \
-      --jq ".assets[] | select(.name == \"$ASSET_NAME\") | .digest"
-  )"
-  [[ "$EXPECTED_DIGEST" =~ ^sha256:[0-9A-Fa-f]{64}$ ]] || \
-    fail "release digest was not found for $ASSET_NAME"
-  EXPECTED_HASH="${EXPECTED_DIGEST#sha256:}"
-  EXPECTED_HASH="${EXPECTED_HASH,,}"
   ACTUAL_HASH="$(sha256sum -- "$WHEEL" | awk '{print $1}')"
-  [[ "$ACTUAL_HASH" == "$EXPECTED_HASH" ]] || \
-    fail "wheel digest mismatch: expected $EXPECTED_HASH, found $ACTUAL_HASH"
-  printf 'Verified release wheel sha256:%s\n' "$ACTUAL_HASH"
   [[ -f "$REQUIREMENTS" && ! -L "$REQUIREMENTS" ]] || \
     fail "downloaded locked requirements were not found: $REQUIREMENTS"
-  EXPECTED_REQUIREMENTS_DIGEST="$(
-    "$GH" release view "$RELEASE_TAG" \
-      --repo "$REPOSITORY" \
-      --json assets \
-      --jq ".assets[] | select(.name == \"$REQUIREMENTS_NAME\") | .digest"
-  )"
-  [[ "$EXPECTED_REQUIREMENTS_DIGEST" =~ ^sha256:[0-9A-Fa-f]{64}$ ]] || \
-    fail "release digest was not found for $REQUIREMENTS_NAME"
-  EXPECTED_REQUIREMENTS_HASH="${EXPECTED_REQUIREMENTS_DIGEST#sha256:}"
-  EXPECTED_REQUIREMENTS_HASH="${EXPECTED_REQUIREMENTS_HASH,,}"
   REQUIREMENTS_HASH="$(sha256sum -- "$REQUIREMENTS" | awk '{print $1}')"
-  [[ "$REQUIREMENTS_HASH" == "$EXPECTED_REQUIREMENTS_HASH" ]] || \
-    fail "requirements digest mismatch: expected $EXPECTED_REQUIREMENTS_HASH, found $REQUIREMENTS_HASH"
+  for asset in "$WHEEL" "$REQUIREMENTS"; do
+    bundle="$DOWNLOAD/.$(basename -- "$asset").attestations.jsonl"
+    env -u GH_TOKEN -u GITHUB_TOKEN "$GH" attestation verify "$asset" \
+      --repo "$REPOSITORY" \
+      --bundle "$bundle" \
+      --signer-workflow "$REPOSITORY/.github/workflows/release.yml" \
+      --source-ref "refs/tags/$RELEASE_TAG" \
+      --deny-self-hosted-runners
+    rm -f -- "$bundle"
+  done
+  printf 'Verified release wheel sha256:%s\n' "$ACTUAL_HASH"
   printf 'Verified locked runtime requirements sha256:%s\n' "$REQUIREMENTS_HASH"
 fi
 

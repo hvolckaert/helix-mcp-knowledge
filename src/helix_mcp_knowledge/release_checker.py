@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 import threading
@@ -13,10 +12,11 @@ from datetime import UTC, datetime
 
 from . import __version__
 from .config import UpdateSettings
+from .github_public import PublicGitHubTransport, ReleaseTransport
 from .models.update import UpdateStatus
-from .openclaw import CommandRunner, _resolve_command, _run
+from .openclaw import CommandRunner
 from .storage.automation import AutomationStore
-from .updater import _normalize_version, _version_tuple
+from .updater import _normalize_version, _resolve_release, _version_tuple
 
 LOGGER = logging.getLogger(__name__)
 LEASE_NAME = "release-update-check"
@@ -35,6 +35,7 @@ class ReleaseUpdateChecker:
         settings: UpdateSettings,
         current_version: str = __version__,
         runner: CommandRunner = subprocess.run,
+        transport: ReleaseTransport | None = None,
         clock: Callable[[], float] = time.time,
         owner_id: str | None = None,
         startup_delay_seconds: float = STARTUP_DELAY_SECONDS,
@@ -43,6 +44,7 @@ class ReleaseUpdateChecker:
         self.settings = settings
         self.current_version = _normalize_version(current_version)
         self.runner = runner
+        self.transport = transport or PublicGitHubTransport()
         self.clock = clock
         self.owner_id = owner_id or f"update_check_{uuid.uuid4()}"
         self.startup_delay_seconds = max(0.0, startup_delay_seconds)
@@ -127,35 +129,20 @@ class ReleaseUpdateChecker:
             },
         )
         try:
-            gh_command = _resolve_command(self.settings.gh_command, label="GitHub CLI")
-            completed = _run(
-                [
-                    str(gh_command),
-                    "release",
-                    "view",
-                    "--repo",
-                    self.settings.repository,
-                    "--json",
-                    "tagName,isDraft,isPrerelease,publishedAt,url",
-                ],
-                runner=self.runner,
-                timeout=self.settings.timeout_seconds,
-                action="GitHub release update check",
+            release = _resolve_release(
+                repository=self.settings.repository,
+                requested_version=None,
+                transport=self.transport,
             )
-            payload = json.loads(completed.stdout)
-            if not isinstance(payload, dict):
-                raise ValueError("GitHub release metadata must be a JSON object")
-            if payload.get("isDraft") or payload.get("isPrerelease"):
-                raise ValueError("GitHub latest release is not stable")
-            latest = _normalize_version(str(payload.get("tagName", "")))
+            latest = release.version
             available = _version_tuple(latest) > _version_tuple(self.current_version)
             checked = self.clock()
             state: dict[str, object] = {
                 "status": "available" if available else "current",
                 "latest_version": latest,
                 "update_available": available,
-                "release_url": str(payload.get("url") or "") or None,
-                "published_at": str(payload.get("publishedAt") or "") or None,
+                "release_url": release.url,
+                "published_at": release.published_at,
                 "checked_at": self._timestamp(checked),
                 "next_check_at": self._timestamp(checked + self.settings.interval_hours * 3600),
                 "next_check_epoch": checked + self.settings.interval_hours * 3600,

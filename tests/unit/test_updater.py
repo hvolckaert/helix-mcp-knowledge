@@ -22,7 +22,7 @@ from helix_mcp_knowledge.managed_installation import (
     stable_launcher_path,
 )
 from helix_mcp_knowledge.openclaw import EXPOSED_TOOLS, openclaw_stdio_invocation
-from helix_mcp_knowledge.updater import update_installation
+from helix_mcp_knowledge.updater import update_installation as _update_installation
 
 CURRENT_VERSION = "1.0.2"
 TARGET_VERSION = "1.1.0"
@@ -62,6 +62,8 @@ class FakeUpdateRunner:
         self.fail_switch_after_write = fail_switch_after_write
         self.target_tools = target_tools
         self.calls: list[list[str]] = []
+        self.urls: list[str] = []
+        self.environments: list[dict[str, str] | None] = []
         self.definitions: list[dict[str, object]] = []
         self.previous_definition = {
             "command": str(previous_server),
@@ -72,6 +74,49 @@ class FakeUpdateRunner:
             "timeout": 60,
         }
 
+    def get_json(self, url: str, *, timeout: int, action: str) -> object:
+        del timeout, action
+        self.urls.append(url)
+        if "/attestations/" in url:
+            return {
+                "attestations": [
+                    {"bundle": {"mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json"}}
+                ]
+            }
+        return {
+            "tag_name": f"v{TARGET_VERSION}",
+            "draft": False,
+            "prerelease": False,
+            "assets": [
+                {
+                    "name": f"helix_mcp_knowledge-{TARGET_VERSION}-py3-none-any.whl",
+                    "digest": f"sha256:{WHEEL_SHA256}",
+                },
+                {
+                    "name": "runtime-requirements.txt",
+                    "digest": f"sha256:{REQUIREMENTS_SHA256}",
+                },
+            ],
+        }
+
+    def download(
+        self,
+        url: str,
+        destination: Path,
+        *,
+        timeout: int,
+        action: str,
+    ) -> None:
+        del timeout, action
+        self.urls.append(url)
+        destination.write_bytes(
+            b"corrupt"
+            if self.corrupt_download and destination.name.endswith(".whl")
+            else REQUIREMENTS_BYTES
+            if destination.name == "runtime-requirements.txt"
+            else WHEEL_BYTES
+        )
+
     def __call__(self, command, **kwargs):
         rendered = [str(item) for item in command]
         if os.name == "nt" and "-File" in rendered:
@@ -79,38 +124,14 @@ class FakeUpdateRunner:
             if Path(rendered[file_index + 1]) == self.openclaw.with_suffix(".ps1"):
                 rendered = [str(self.openclaw), *rendered[file_index + 2 :]]
         self.calls.append(rendered)
+        self.environments.append(kwargs.get("env"))
         stdout = ""
         returncode = 0
 
-        if rendered[1:3] == ["release", "view"]:
-            stdout = json.dumps(
-                {
-                    "tagName": f"v{TARGET_VERSION}",
-                    "isDraft": False,
-                    "isPrerelease": False,
-                    "assets": [
-                        {
-                            "name": (f"helix_mcp_knowledge-{TARGET_VERSION}-py3-none-any.whl"),
-                            "digest": f"sha256:{WHEEL_SHA256}",
-                        },
-                        {
-                            "name": "runtime-requirements.txt",
-                            "digest": f"sha256:{REQUIREMENTS_SHA256}",
-                        },
-                    ],
-                }
-            )
-        elif rendered[1:3] == ["release", "download"]:
-            destination = Path(rendered[rendered.index("--dir") + 1])
-            asset_name = rendered[rendered.index("--pattern") + 1]
-            asset = destination / asset_name
-            asset.write_bytes(
-                b"corrupt"
-                if self.corrupt_download and asset_name.endswith(".whl")
-                else REQUIREMENTS_BYTES
-                if asset_name == "runtime-requirements.txt"
-                else WHEEL_BYTES
-            )
+        if rendered[1:2] == ["release"]:
+            raise AssertionError("public release access must not use gh")
+        if rendered[1:3] == ["attestation", "verify"]:
+            pass
         elif rendered[0] == str(self.openclaw) and rendered[1:4] == [
             "mcp",
             "show",
@@ -180,6 +201,10 @@ class FakeUpdateRunner:
             )
 
         return subprocess.CompletedProcess(rendered, returncode, stdout=stdout, stderr="")
+
+
+def update_installation(*, runner, **kwargs):
+    return _update_installation(runner=runner, transport=runner, **kwargs)
 
 
 def _managed_installation(config_path: Path) -> tuple[Path, Path, Path, Path, Path]:
@@ -496,7 +521,7 @@ def test_update_aborts_if_another_process_changed_the_active_runtime(
             base_python=base_python,
         )
 
-    assert not any(call[1:3] == ["release", "download"] for call in runner.calls)
+    assert not any("/releases/download/" in url for url in runner.urls)
 
 
 def test_standalone_update_restores_both_launchers_after_dashboard_health_failure(
@@ -616,8 +641,10 @@ def test_update_dry_run_does_not_download_or_mutate(config_path: Path) -> None:
     )
 
     assert result.status == "planned"
-    assert len(runner.calls) == 1
-    assert runner.calls[0][1:3] == ["release", "view"]
+    assert runner.calls == []
+    assert runner.urls == [
+        "https://api.github.com/repos/hvolckaert/helix-mcp-knowledge/releases/latest"
+    ]
     assert not (config_path.parent.parent / "runtime" / TARGET_VERSION).exists()
 
 

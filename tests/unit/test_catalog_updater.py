@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import subprocess
 from pathlib import Path
 
@@ -37,34 +36,58 @@ class CatalogRunner:
         self.manifest = manifest
         self.corrupt_checksum = corrupt_checksum
         self.calls: list[list[str]] = []
+        self.urls: list[str] = []
 
-    def __call__(self, command, **kwargs):
-        rendered = [str(item) for item in command]
-        self.calls.append(rendered)
-        if rendered[1:3] == ["release", "list"]:
-            return subprocess.CompletedProcess(
-                rendered,
-                0,
-                stdout=json.dumps(
-                    [
-                        {
-                            "tagName": f"catalog-v{self.manifest.catalog_revision}",
-                            "isDraft": False,
-                        }
-                    ]
-                ),
-                stderr="",
-            )
-        destination = Path(rendered[rendered.index("--dir") + 1])
+    def _assets(self) -> dict[str, bytes]:
         manifest_name = "bmc-official-catalog.yaml"
         content = yaml.safe_dump(
             self.manifest.model_dump(mode="json", exclude_defaults=False), sort_keys=False
         ).encode()
-        (destination / manifest_name).write_bytes(content)
         digest = "0" * 64 if self.corrupt_checksum else hashlib.sha256(content).hexdigest()
-        (destination / "bmc-official-catalog.sha256").write_text(
-            f"{digest}  {manifest_name}\n", encoding="utf-8"
-        )
+        return {
+            manifest_name: content,
+            "bmc-official-catalog.sha256": f"{digest}  {manifest_name}\n".encode(),
+        }
+
+    def get_json(self, url: str, *, timeout: int, action: str) -> object:
+        del timeout, action
+        self.urls.append(url)
+        if "/attestations/" in url:
+            return {"attestations": [{"bundle": {"mediaType": "test-bundle"}}]}
+        return [
+            {
+                "tag_name": f"catalog-v{self.manifest.catalog_revision}",
+                "draft": False,
+                "prerelease": True,
+                "html_url": "https://github.test/catalog-release",
+                "assets": [
+                    {
+                        "name": name,
+                        "digest": f"sha256:{hashlib.sha256(content).hexdigest()}",
+                    }
+                    for name, content in self._assets().items()
+                ],
+            }
+        ]
+
+    def download(
+        self,
+        url: str,
+        destination: Path,
+        *,
+        timeout: int,
+        action: str,
+    ) -> None:
+        del timeout, action
+        self.urls.append(url)
+        destination.write_bytes(self._assets()[destination.name])
+
+    def __call__(self, command, **kwargs):
+        rendered = [str(item) for item in command]
+        self.calls.append(rendered)
+        if rendered[1:2] == ["release"]:
+            raise AssertionError("public catalog access must not use gh")
+        assert rendered[1:3] == ["attestation", "verify"]
         return subprocess.CompletedProcess(rendered, 0, stdout="", stderr="")
 
 
@@ -79,7 +102,7 @@ def _checker(app, tmp_path: Path, runner: CatalogRunner, callback=lambda: None):
     gh.write_text("command", encoding="utf-8")
     app.config.catalog_updates = CatalogUpdateSettings(
         enabled=True,
-        repository="example/private",
+        repository="example/public",
         gh_command=str(gh),
         cache_path=Path("data/cache/catalog.yaml"),
     )
@@ -87,6 +110,7 @@ def _checker(app, tmp_path: Path, runner: CatalogRunner, callback=lambda: None):
         config=app.config,
         store=AutomationStore(app.database),
         runner=runner,
+        transport=runner,
         clock=lambda: 1_800_000_000.0,
         owner_id="catalog-checker",
         on_updated=callback,
@@ -106,12 +130,13 @@ def test_catalog_checker_downloads_verifies_and_activates_new_revision(app, tmp_
     assert activated == [True]
     assert OfficialSourceManifest.load(app.config.official_catalog_cache_path).catalog_revision == 2
     assert len(runner.calls) == 2
+    assert len(runner.urls) == 5
 
 
 def test_catalog_checker_uses_runtime_update_command_for_legacy_configuration(
     app, tmp_path: Path
 ) -> None:
-    runner = CatalogRunner(_catalog(1))
+    runner = CatalogRunner(_catalog(2))
     checker = _checker(app, tmp_path, runner)
     gh = Path(app.config.catalog_updates.gh_command)
     app.config.catalog_updates.gh_command = "gh"
@@ -119,7 +144,7 @@ def test_catalog_checker_uses_runtime_update_command_for_legacy_configuration(
 
     result = checker.check(force=True)
 
-    assert result.status == "current"
+    assert result.status == "updated"
     assert runner.calls[0][0] == str(gh)
 
 
@@ -143,4 +168,5 @@ def test_catalog_checker_does_not_download_an_existing_revision(app, tmp_path: P
 
     assert result.status == "current"
     assert result.current_revision == 1
-    assert len(runner.calls) == 1
+    assert runner.calls == []
+    assert runner.urls == ["https://api.github.com/repos/example/public/releases?per_page=100"]

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import subprocess
 from pathlib import Path
 
 from helix_mcp_knowledge.config import UpdateSettings
@@ -21,49 +19,48 @@ class ReleaseRunner:
     def __init__(self, *, version: str = "1.3.0", fail: bool = False) -> None:
         self.version = version
         self.fail = fail
-        self.calls: list[list[str]] = []
+        self.calls: list[str] = []
 
-    def __call__(self, command, **kwargs):
-        rendered = [str(item) for item in command]
-        self.calls.append(rendered)
+    def get_json(self, url: str, *, timeout: int, action: str) -> object:
+        del timeout, action
+        self.calls.append(url)
         if self.fail:
-            return subprocess.CompletedProcess(
-                rendered,
-                1,
-                stdout="",
-                stderr="authentication required",
-            )
-        return subprocess.CompletedProcess(
-            rendered,
-            0,
-            stdout=json.dumps(
+            raise RuntimeError("public API unavailable")
+        return {
+            "tag_name": f"v{self.version}",
+            "draft": False,
+            "prerelease": False,
+            "published_at": "2026-09-05T10:00:00Z",
+            "html_url": f"https://github.test/releases/v{self.version}",
+            "assets": [
                 {
-                    "tagName": f"v{self.version}",
-                    "isDraft": False,
-                    "isPrerelease": False,
-                    "publishedAt": "2026-09-05T10:00:00Z",
-                    "url": f"https://github.test/releases/v{self.version}",
-                }
-            ),
-            stderr="",
-        )
+                    "name": f"helix_mcp_knowledge-{self.version}-py3-none-any.whl",
+                    "digest": f"sha256:{'a' * 64}",
+                },
+                {
+                    "name": "runtime-requirements.txt",
+                    "digest": f"sha256:{'b' * 64}",
+                },
+            ],
+        }
+
+    def download(self, *args, **kwargs) -> None:
+        raise AssertionError("release checks must not download assets")
 
 
 def _checker(app, tmp_path: Path, runner: ReleaseRunner, clock: Clock) -> ReleaseUpdateChecker:
-    gh = tmp_path / "gh"
-    gh.write_text("command", encoding="utf-8")
     return ReleaseUpdateChecker(
         store=AutomationStore(app.database),
         settings=UpdateSettings(
             enabled=True,
             interval_hours=24,
             retry_minutes=15,
-            repository="example/private",
-            gh_command=str(gh),
+            repository="example/public",
             timeout_seconds=30,
         ),
         current_version="1.2.0",
         runner=runner,
+        transport=runner,
         clock=clock,
         owner_id="checker-one",
     )
@@ -113,14 +110,14 @@ def test_release_checker_retains_last_known_release_after_controlled_error(
     assert checker.check().status == "available"
 
     failing_runner = ReleaseRunner(fail=True)
-    checker.runner = failing_runner
+    checker.transport = failing_runner
     clock.value += 60
     result = checker.check(force=True)
 
     assert result.status == "error"
     assert result.latest_version == "1.3.0"
     assert result.update_available is True
-    assert result.error is not None and "authentication required" in result.error
+    assert result.error is not None and "public API unavailable" in result.error
     assert result.next_check_at is not None
 
 

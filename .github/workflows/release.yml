@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   validate-core:
@@ -70,6 +72,10 @@ jobs:
           cp scripts/install-windows.ps1 dist/install-windows.ps1
           cp runtime-requirements.txt dist/runtime-requirements.txt
           (cd dist && sha256sum -- * > SHA256SUMS)
+      - name: Attest release assets
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: dist/*
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
