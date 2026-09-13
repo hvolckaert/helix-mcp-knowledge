@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import shlex
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -21,6 +22,54 @@ from helix_mcp_knowledge.models.source import SourceScope
 from helix_mcp_knowledge.openclaw import EXPOSED_TOOLS, openclaw_stdio_invocation
 from helix_mcp_knowledge.updater import update_installation
 from helix_mcp_knowledge.workspace import initialize_workspace
+
+
+class FakeReleaseTransport:
+    """Hermetic public-release transport for the packaged update acceptance flow."""
+
+    def __init__(
+        self,
+        *,
+        wheel: Path,
+        requirements: Path,
+        version: str,
+        sha256: str,
+        requirements_sha256: str,
+    ) -> None:
+        self.wheel = wheel
+        self.requirements = requirements
+        self.version = version
+        self.sha256 = sha256
+        self.requirements_sha256 = requirements_sha256
+
+    def get_json(self, url: str, *, timeout: int, action: str) -> object:
+        del timeout, action
+        if "/attestations/" in url:
+            return {"attestations": [{"bundle": {"mediaType": "test-bundle"}}]}
+        return {
+            "tag_name": f"v{self.version}",
+            "draft": False,
+            "prerelease": False,
+            "assets": [
+                {"name": self.wheel.name, "digest": f"sha256:{self.sha256}"},
+                {
+                    "name": self.requirements.name,
+                    "digest": f"sha256:{self.requirements_sha256}",
+                },
+            ],
+        }
+
+    def download(
+        self,
+        url: str,
+        destination: Path,
+        *,
+        timeout: int,
+        action: str,
+    ) -> None:
+        del url, timeout, action
+        source = self.requirements if destination.name == self.requirements.name else self.wheel
+        shutil.copy2(source, destination)
 
 
 def _arguments() -> argparse.Namespace:
@@ -80,48 +129,22 @@ def _write_wrapper(path: Path, script: Path) -> None:
         path.chmod(0o700)
 
 
-def _write_fake_gh(
-    script: Path,
-    *,
-    wheel: Path,
-    requirements: Path,
-    version: str,
-    sha256: str,
-    requirements_sha256: str,
-) -> None:
+def _write_fake_gh(script: Path) -> None:
     script.write_text(
-        f"""from __future__ import annotations
+        """from __future__ import annotations
 import json
-import shutil
+import os
 import sys
 from pathlib import Path
 
-WHEEL = Path({str(wheel)!r})
-REQUIREMENTS = Path({str(requirements)!r})
-VERSION = {version!r}
-SHA256 = {sha256!r}
-REQUIREMENTS_SHA256 = {requirements_sha256!r}
 args = sys.argv[1:]
-if args[:2] == ["release", "view"]:
-    print(json.dumps({{
-        "tagName": f"v{{VERSION}}",
-        "isDraft": False,
-        "isPrerelease": False,
-        "assets": [
-            {{"name": WHEEL.name, "digest": f"sha256:{{SHA256}}"}},
-            {{
-                "name": REQUIREMENTS.name,
-                "digest": f"sha256:{{REQUIREMENTS_SHA256}}",
-            }},
-        ],
-    }}))
-elif args[:2] == ["release", "download"]:
-    asset_name = args[args.index("--pattern") + 1]
-    source = REQUIREMENTS if asset_name == REQUIREMENTS.name else WHEEL
-    destination = Path(args[args.index("--dir") + 1]) / asset_name
-    shutil.copy2(source, destination)
-else:
-    raise SystemExit(f"unexpected fake gh arguments: {{args!r}}")
+if args[:2] != ["attestation", "verify"]:
+    raise SystemExit(f"unexpected fake gh arguments: {args!r}")
+if os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN"):
+    raise SystemExit("GitHub tokens were forwarded to local verification")
+bundle = Path(args[args.index("--bundle") + 1])
+if not bundle.is_file() or not [json.loads(line) for line in bundle.read_text().splitlines()]:
+    raise SystemExit("public attestation bundle was not provided")
 """,
         encoding="utf-8",
     )
@@ -246,14 +269,7 @@ def main() -> int:
             ),
             encoding="utf-8",
         )
-        _write_fake_gh(
-            gh_script,
-            wheel=wheel,
-            requirements=requirements,
-            version=version,
-            sha256=digest,
-            requirements_sha256=requirements_digest,
-        )
+        _write_fake_gh(gh_script)
         _write_fake_openclaw(openclaw_script, state=state)
         _write_wrapper(gh, gh_script)
         _write_wrapper(openclaw, openclaw_script)
@@ -266,6 +282,13 @@ def main() -> int:
             current_version="0.0.1",
             current_python=current_python,
             base_python=Path(getattr(sys, "_base_executable", sys.executable)),
+            transport=FakeReleaseTransport(
+                wheel=wheel,
+                requirements=requirements,
+                version=version,
+                sha256=digest,
+                requirements_sha256=requirements_digest,
+            ),
         )
         active = json.loads(state.read_text(encoding="utf-8"))
         launcher = stable_launcher_path(workspace)
