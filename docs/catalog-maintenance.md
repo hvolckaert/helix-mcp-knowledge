@@ -25,11 +25,14 @@ Each release contains:
 - `bmc-official-catalog.yaml`;
 - `bmc-official-catalog.sha256`.
 
-The server uses the authenticated GitHub CLI session configured for updates,
-downloads both assets to a temporary directory, verifies the SHA-256 digest,
-validates the complete Pydantic schema, checks product aliases and the URL domain
-allowlist, and only then atomically replaces its cached catalog. The packaged and
-local catalogs remain a safe fallback when GitHub is unavailable.
+The server discovers releases and downloads both assets and their attestation
+bundles through anonymous public GitHub endpoints. It verifies the published
+asset digests, uses the installed but unauthenticated GitHub CLI to validate the
+bundles locally against the catalog publication workflow, checks the catalog's
+own SHA-256 file, validates the complete Pydantic schema, checks product aliases
+and the URL domain allowlist, and only then atomically replaces its cached
+catalog. `GH_TOKEN` and `GITHUB_TOKEN` are neither required nor forwarded. The
+packaged and local catalogs remain a safe fallback when GitHub is unavailable.
 
 The default cache is
 `data/cache/official-catalog/bmc-official-catalog.yaml`. Multiple MCP processes

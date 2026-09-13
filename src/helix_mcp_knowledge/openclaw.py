@@ -7,7 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -285,8 +285,15 @@ def _run(
     runner: CommandRunner,
     timeout: int,
     action: str,
+    env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    completed = _execute(command, runner=runner, timeout=timeout, action=action)
+    completed = _execute(
+        command,
+        runner=runner,
+        timeout=timeout,
+        action=action,
+        env=env,
+    )
     _raise_for_failure(completed, action=action)
     return completed
 
@@ -297,17 +304,20 @@ def _execute(
     runner: CommandRunner,
     timeout: int,
     action: str,
+    env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     prepared_command = _prepare_command(command)
     try:
-        completed = runner(
-            prepared_command,
-            check=False,
-            capture_output=True,
-            shell=False,
-            text=True,
-            timeout=timeout,
-        )
+        options: dict[str, object] = {
+            "check": False,
+            "capture_output": True,
+            "shell": False,
+            "text": True,
+            "timeout": timeout,
+        }
+        if env is not None:
+            options["env"] = env
+        completed = runner(prepared_command, **options)
     except subprocess.TimeoutExpired as exc:
         raise KnowledgeError(f"{action} timed out after {timeout} seconds") from exc
     except OSError as exc:

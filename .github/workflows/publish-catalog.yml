@@ -19,6 +19,8 @@ concurrency:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   publish:
@@ -67,7 +69,8 @@ jobs:
           uv run --frozen --extra dev ruff check .
           uv run --frozen --extra dev ruff format --check .
           uv run --frozen --extra dev pytest
-      - name: Publish immutable checksum-verified catalog release
+      - name: Prepare immutable checksum-verified catalog release
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -75,7 +78,9 @@ jobs:
           manifest="config/sources/bmc-official-26.1.yaml"
           revision="$(uv run --frozen --extra dev python -c 'from pathlib import Path; from helix_mcp_knowledge.sync.manifest import OfficialSourceManifest; print(OfficialSourceManifest.load(Path("config/sources/bmc-official-26.1.yaml")).catalog_revision)')"
           tag="catalog-v${revision}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
           release_dir="$(mktemp -d "${RUNNER_TEMP}/helix-catalog-release.XXXXXX")"
+          echo "release_dir=${release_dir}" >> "${GITHUB_OUTPUT}"
           expected="$(mktemp "${RUNNER_TEMP}/helix-catalog-expected.XXXXXX")"
           actual="$(mktemp "${RUNNER_TEMP}/helix-catalog-actual.XXXXXX")"
           install -m 0644 "${manifest}" "${release_dir}/bmc-official-catalog.yaml"
@@ -145,4 +150,11 @@ jobs:
               exit 1
             fi
           done < "${expected}"
-          gh release edit "${tag}" --draft=false --prerelease
+      - name: Attest catalog release assets
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: ${{ steps.publish.outputs.release_dir }}/*
+      - name: Publish verified catalog release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ steps.publish.outputs.tag }}" --draft=false --prerelease

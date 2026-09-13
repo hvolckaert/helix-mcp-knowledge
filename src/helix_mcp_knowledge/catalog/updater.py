@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import os
 import re
@@ -19,7 +18,14 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from ..config import AppConfig
-from ..openclaw import CommandRunner, _resolve_command, _run
+from ..github_public import (
+    GITHUB_API_ROOT,
+    GITHUB_RELEASE_ROOT,
+    PublicGitHubTransport,
+    ReleaseTransport,
+    verify_public_attestation,
+)
+from ..openclaw import CommandRunner, _resolve_command
 from ..storage.automation import AutomationStore
 from ..sync.manifest import OfficialSourceManifest
 from .products import ProductCatalog
@@ -30,6 +36,7 @@ JOB_ID = "official-catalog-update"
 STARTUP_DELAY_SECONDS = 7.0
 MAX_CATALOG_BYTES = 5 * 1024 * 1024
 _CHECKSUM_PATTERN = re.compile(r"^([0-9a-fA-F]{64})\s+\*?([^\s]+)\s*$")
+_SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True)
@@ -46,6 +53,14 @@ class CatalogUpdateStatus:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class CatalogRelease:
+    revision: int
+    tag: str
+    url: str
+    asset_sha256: dict[str, str]
+
+
 class CatalogUpdateChecker:
     """Discover and adopt immutable catalog releases without updating the runtime."""
 
@@ -55,6 +70,7 @@ class CatalogUpdateChecker:
         config: AppConfig,
         store: AutomationStore,
         runner: CommandRunner = subprocess.run,
+        transport: ReleaseTransport | None = None,
         clock: Callable[[], float] = time.time,
         owner_id: str | None = None,
         startup_delay_seconds: float = STARTUP_DELAY_SECONDS,
@@ -64,6 +80,7 @@ class CatalogUpdateChecker:
         self.settings = config.catalog_updates
         self.store = store
         self.runner = runner
+        self.transport = transport or PublicGitHubTransport()
         self.clock = clock
         self.owner_id = owner_id or f"catalog_check_{uuid.uuid4()}"
         self.startup_delay_seconds = max(0.0, startup_delay_seconds)
@@ -143,7 +160,7 @@ class CatalogUpdateChecker:
         )
         try:
             release = self._latest_release()
-            latest_revision = release["revision"]
+            latest_revision = release.revision
             current_revision = self._current_revision()
             if latest_revision < current_revision:
                 raise ValueError(
@@ -152,9 +169,7 @@ class CatalogUpdateChecker:
                 )
             updated = False
             if latest_revision > current_revision:
-                manifest = self._download_and_validate(
-                    tag=release["tag"], expected_revision=latest_revision
-                )
+                manifest = self._download_and_validate(release)
                 self._atomic_write_cache(manifest)
                 self._activate_cached_catalog()
                 current_revision = latest_revision
@@ -164,7 +179,7 @@ class CatalogUpdateChecker:
                 "status": "updated" if updated else "current",
                 "current_revision": current_revision,
                 "latest_revision": latest_revision,
-                "release_url": release["url"],
+                "release_url": release.url,
                 "checked_at": self._timestamp(checked),
                 "next_check_at": self._timestamp(checked + self.settings.interval_hours * 3600),
                 "next_check_epoch": checked + self.settings.interval_hours * 3600,
@@ -183,79 +198,75 @@ class CatalogUpdateChecker:
         self.store.update_state(JOB_ID, state)
         return self._response(state)
 
-    def _latest_release(self) -> dict[str, object]:
-        gh_command = self._resolve_gh_command()
-        completed = _run(
-            [
-                str(gh_command),
-                "release",
-                "list",
-                "--repo",
-                self.settings.repository,
-                "--limit",
-                "100",
-                "--json",
-                "tagName,isDraft",
-            ],
-            runner=self.runner,
+    def _latest_release(self) -> CatalogRelease:
+        payload = self.transport.get_json(
+            f"{GITHUB_API_ROOT}/repos/{self.settings.repository}/releases?per_page=100",
             timeout=self.settings.timeout_seconds,
             action="GitHub catalog release check",
         )
-        payload = json.loads(completed.stdout)
         if not isinstance(payload, list):
             raise ValueError("GitHub catalog release list must be a JSON array")
         pattern = re.compile(rf"^{re.escape(self.settings.release_prefix)}([0-9]+)$")
-        candidates: list[tuple[int, str]] = []
+        candidates: list[tuple[int, dict[str, object]]] = []
         for item in payload:
-            if not isinstance(item, dict) or item.get("isDraft"):
+            if not isinstance(item, dict) or item.get("draft"):
                 continue
-            tag = str(item.get("tagName") or "")
+            tag = str(item.get("tag_name") or "")
             match = pattern.fullmatch(tag)
             if match:
-                candidates.append((int(match.group(1)), tag))
+                candidates.append((int(match.group(1)), item))
         if not candidates:
             raise ValueError(
                 f"no published catalog release matches {self.settings.release_prefix}<revision>"
             )
-        revision, tag = max(candidates)
-        return {
-            "revision": revision,
-            "tag": tag,
-            "url": f"https://github.com/{self.settings.repository}/releases/tag/{tag}",
+        revision, release = max(candidates, key=lambda candidate: candidate[0])
+        tag = str(release["tag_name"])
+        asset_sha256 = {
+            asset_name: self._release_asset_sha256(release, asset_name=asset_name, tag=tag)
+            for asset_name in (self.settings.manifest_asset, self.settings.checksum_asset)
         }
+        return CatalogRelease(
+            revision=revision,
+            tag=tag,
+            url=(
+                str(release.get("html_url") or "")
+                or f"{GITHUB_RELEASE_ROOT}/{self.settings.repository}/releases/tag/{tag}"
+            ),
+            asset_sha256=asset_sha256,
+        )
 
-    def _download_and_validate(
-        self, *, tag: object, expected_revision: object
-    ) -> OfficialSourceManifest:
-        if not isinstance(tag, str) or not isinstance(expected_revision, int):
-            raise ValueError("invalid catalog release metadata")
+    def _download_and_validate(self, release: CatalogRelease) -> OfficialSourceManifest:
         gh_command = self._resolve_gh_command()
         with tempfile.TemporaryDirectory(prefix="helix-catalog-") as temporary:
             destination = Path(temporary).resolve()
-            _run(
-                [
-                    str(gh_command),
-                    "release",
-                    "download",
-                    tag,
-                    "--repo",
-                    self.settings.repository,
-                    "--pattern",
-                    self.settings.manifest_asset,
-                    "--pattern",
-                    self.settings.checksum_asset,
-                    "--dir",
-                    str(destination),
-                    "--clobber",
-                ],
-                runner=self.runner,
-                timeout=self.settings.timeout_seconds * 2,
-                action="GitHub catalog asset download",
-            )
+            for asset_name, expected_sha256 in release.asset_sha256.items():
+                asset_path = destination / asset_name
+                self.transport.download(
+                    (
+                        f"{GITHUB_RELEASE_ROOT}/{self.settings.repository}/releases/download/"
+                        f"{release.tag}/{asset_name}"
+                    ),
+                    asset_path,
+                    timeout=self.settings.timeout_seconds * 2,
+                    action="GitHub catalog asset download",
+                )
+                self._validate_download_path(asset_path, destination)
+                actual_sha256 = hashlib.sha256(asset_path.read_bytes()).hexdigest()
+                if actual_sha256 != expected_sha256:
+                    raise ValueError(f"catalog release digest verification failed for {asset_name}")
+                verify_public_attestation(
+                    gh_command,
+                    asset_path,
+                    repository=self.settings.repository,
+                    sha256=expected_sha256,
+                    release_tag=release.tag,
+                    signer_workflow=".github/workflows/publish-catalog.yml",
+                    source_ref="refs/heads/main",
+                    runner=self.runner,
+                    transport=self.transport,
+                )
             manifest_path = destination / self.settings.manifest_asset
             checksum_path = destination / self.settings.checksum_asset
-            self._validate_download_path(manifest_path, destination)
-            self._validate_download_path(checksum_path, destination)
             manifest_bytes = manifest_path.read_bytes()
             if len(manifest_bytes) > MAX_CATALOG_BYTES:
                 raise ValueError("downloaded catalog exceeds the 5 MiB safety limit")
@@ -268,9 +279,9 @@ class CatalogUpdateChecker:
             manifest = OfficialSourceManifest.load(manifest_path)
         if manifest.schema_version != 2:
             raise ValueError("remote catalog must use schema_version 2")
-        if manifest.catalog_revision != expected_revision:
+        if manifest.catalog_revision != release.revision:
             raise ValueError(
-                f"catalog release revision {expected_revision} does not match manifest "
+                f"catalog release revision {release.revision} does not match manifest "
                 f"revision {manifest.catalog_revision}"
             )
         if not manifest.products or not manifest.collections:
@@ -289,6 +300,23 @@ class CatalogUpdateChecker:
             if hostname not in allowed_domains:
                 raise ValueError(f"catalog URL uses a domain outside the allowlist: {hostname}")
         return manifest
+
+    @staticmethod
+    def _release_asset_sha256(payload: dict[str, object], *, asset_name: str, tag: str) -> str:
+        assets = payload.get("assets")
+        matching = (
+            [item for item in assets if isinstance(item, dict) and item.get("name") == asset_name]
+            if isinstance(assets, list)
+            else []
+        )
+        if len(matching) != 1:
+            raise ValueError(f"catalog release {tag} must contain exactly one {asset_name} asset")
+        digest = str(matching[0].get("digest") or "")
+        algorithm, separator, value = digest.partition(":")
+        sha256 = value.casefold() if separator and algorithm.casefold() == "sha256" else ""
+        if not _SHA256_PATTERN.fullmatch(sha256):
+            raise ValueError(f"catalog release {tag} has no valid SHA-256 digest for {asset_name}")
+        return sha256
 
     def _resolve_gh_command(self) -> Path:
         configured = self.settings.gh_command

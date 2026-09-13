@@ -97,8 +97,104 @@ function Invoke-NativeCapture {
     return ($output -join "`n")
 }
 
+function Invoke-PublicGitHubJson {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Uri
+    )
+
+    $headers = @{
+        Accept = 'application/vnd.github+json'
+        'X-GitHub-Api-Version' = '2022-11-28'
+        'User-Agent' = 'helix-mcp-knowledge-installer'
+    }
+    return Invoke-RestMethod -Uri $Uri -Headers $headers -Method Get -TimeoutSec 300
+}
+
+function Save-PublicGitHubAsset {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Uri,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Destination
+    )
+
+    $headers = @{'User-Agent' = 'helix-mcp-knowledge-installer'}
+    $temporary = Join-Path (Split-Path -Parent $Destination) ".download-$([Guid]::NewGuid())"
+    try {
+        Invoke-WebRequest -Uri $Uri -Headers $headers -Method Get -TimeoutSec 300 `
+            -OutFile $temporary -UseBasicParsing
+        $item = Get-Item -LiteralPath $temporary -Force
+        if ($item.Length -gt 256MB) {
+            throw "Release asset is too large: $Destination"
+        }
+        Move-Item -LiteralPath $temporary -Destination $Destination -Force
+    }
+    finally {
+        Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-PublicAttestationVerification {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$GhCommand,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Artifact,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Repository,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ReleaseTag,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Sha256
+    )
+
+    $provenance = Invoke-PublicGitHubJson -Uri (
+        "https://api.github.com/repos/$Repository/attestations/sha256:$Sha256"
+    )
+    $bundles = @($provenance.attestations | Where-Object { $_.bundle } | ForEach-Object {
+        $_.bundle | ConvertTo-Json -Depth 100 -Compress
+    })
+    if ($bundles.Count -eq 0) {
+        throw "Release asset has no verifiable provenance: $Artifact"
+    }
+    $bundlePath = Join-Path (Split-Path -Parent $Artifact) ".attestations-$([Guid]::NewGuid()).jsonl"
+    $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+    $previousGithubToken = [Environment]::GetEnvironmentVariable('GITHUB_TOKEN', 'Process')
+    try {
+        [IO.File]::WriteAllLines(
+            $bundlePath,
+            $bundles,
+            (New-Object Text.UTF8Encoding($false))
+        )
+        [Environment]::SetEnvironmentVariable('GH_TOKEN', $null, 'Process')
+        [Environment]::SetEnvironmentVariable('GITHUB_TOKEN', $null, 'Process')
+        Invoke-NativeCommand -FilePath $GhCommand -ArgumentList @(
+            'attestation', 'verify', $Artifact,
+            '--repo', $Repository,
+            '--bundle', $bundlePath,
+            '--signer-workflow', "$Repository/.github/workflows/release.yml",
+            '--source-ref', "refs/tags/$ReleaseTag",
+            '--deny-self-hosted-runners'
+        )
+    }
+    finally {
+        [Environment]::SetEnvironmentVariable('GH_TOKEN', $previousGhToken, 'Process')
+        [Environment]::SetEnvironmentVariable('GITHUB_TOKEN', $previousGithubToken, 'Process')
+        Remove-Item -LiteralPath $bundlePath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 if (-not $env:LOCALAPPDATA) {
     throw 'LOCALAPPDATA is not defined; run the installer from a Windows user session'
+}
+if ($Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
+    throw "Invalid GitHub repository: $Repository"
 }
 foreach ($selection in $Product) {
     if ($selection -notmatch '^[a-z][a-z0-9_-]*=([0-9][0-9A-Za-z._-]*|current)$') {
@@ -171,32 +267,24 @@ else {
     $requirementsName = 'runtime-requirements.txt'
     $releaseTag = "v$Version"
 
-    Invoke-NativeCommand -FilePath $gh -ArgumentList @(
-        'release', 'download', $releaseTag,
-        '--repo', $Repository,
-        '--pattern', $assetName,
-        '--dir', $download,
-        '--clobber'
+    $release = Invoke-PublicGitHubJson -Uri (
+        "https://api.github.com/repos/$Repository/releases/tags/$releaseTag"
     )
+    if ($release.draft -or $release.prerelease -or $release.tag_name -ne $releaseTag) {
+        throw 'GitHub returned an invalid or non-stable release'
+    }
+    Save-PublicGitHubAsset `
+        -Uri "https://github.com/$Repository/releases/download/$releaseTag/$assetName" `
+        -Destination (Join-Path $download $assetName)
     $wheel = Join-Path $download $assetName
-    Invoke-NativeCommand -FilePath $gh -ArgumentList @(
-        'release', 'download', $releaseTag,
-        '--repo', $Repository,
-        '--pattern', $requirementsName,
-        '--dir', $download,
-        '--clobber'
-    )
+    Save-PublicGitHubAsset `
+        -Uri "https://github.com/$Repository/releases/download/$releaseTag/$requirementsName" `
+        -Destination (Join-Path $download $requirementsName)
     $requirements = Join-Path $download $requirementsName
     if (-not (Test-Path -LiteralPath $wheel -PathType Leaf)) {
         throw "Downloaded wheel was not found: $wheel"
     }
 
-    $releaseJson = Invoke-NativeCapture -FilePath $gh -ArgumentList @(
-        'release', 'view', $releaseTag,
-        '--repo', $Repository,
-        '--json', 'assets'
-    )
-    $release = $releaseJson | ConvertFrom-Json
     $matchingAssets = @(@($release.assets) | Where-Object { $_.name -eq $assetName })
     if ($matchingAssets.Count -ne 1 -or -not $matchingAssets[0].digest) {
         throw "Release digest was not found for $assetName"
@@ -206,6 +294,8 @@ else {
     if ($wheelHash -ne $expectedHash.ToLowerInvariant()) {
         throw "Wheel digest mismatch: expected $expectedHash, found $wheelHash"
     }
+    Invoke-PublicAttestationVerification -GhCommand $gh -Artifact $wheel `
+        -Repository $Repository -ReleaseTag $releaseTag -Sha256 $wheelHash
     Write-Host "Verified release wheel sha256:$wheelHash"
     if (-not (Test-Path -LiteralPath $requirements -PathType Leaf)) {
         throw "Downloaded locked requirements were not found: $requirements"
@@ -219,6 +309,8 @@ else {
     if ($requirementsHash -ne $expectedRequirementsHash.ToLowerInvariant()) {
         throw "Requirements digest mismatch: expected $expectedRequirementsHash, found $requirementsHash"
     }
+    Invoke-PublicAttestationVerification -GhCommand $gh -Artifact $requirements `
+        -Repository $Repository -ReleaseTag $releaseTag -Sha256 $requirementsHash
     Write-Host "Verified locked runtime requirements sha256:$requirementsHash"
 }
 

@@ -240,6 +240,12 @@ acceptance, updates, and rollback:
 
 ### One-command installers
 
+A recent GitHub CLI with `gh attestation verify` must be installed for release
+provenance verification. It does not need to be authenticated for this public
+repository: release metadata, assets, and attestation bundles are retrieved
+through anonymous public endpoints, and `gh` verifies the downloaded bundles
+locally. Do not run `gh auth login` for Knowledge updates.
+
 Windows:
 
 ```powershell
@@ -250,15 +256,6 @@ WSL or Linux from a checkout:
 
 ```bash
 ./scripts/install-linux.sh --version 1.31.0
-```
-
-WSL or Linux directly from the GitHub release:
-
-```bash
-gh release download v1.31.0 \
-  --repo hvolckaert/helix-mcp-knowledge \
-  --pattern install-linux.sh \
-  --output - | bash -s -- --version 1.31.0
 ```
 
 Both installers create a working MCP server with no products selected. Their
@@ -380,7 +377,7 @@ starts automatically after the worker reaches an idle state. The dashboard stays
 available while it waits. Direct CLI updates remain fail-fast and ask the operator
 to retry after synchronization finishes.
 
-Since version 1.1.0, the installed runtime can inspect the latest stable private
+Since version 1.1.0, the installed runtime can inspect the latest stable public
 release and prepare a safe update:
 
 ```bash
@@ -388,12 +385,15 @@ helix-mcp-knowledge --config /path/to/config/config.yaml update --dry-run
 helix-mcp-knowledge --config /path/to/config/config.yaml update
 ```
 
-The command requires an authenticated GitHub CLI. It verifies the published
-SHA-256 digest, installs the wheel in `runtime/<version>/venv`, retains the
-previous runtime, creates online backups of SQLite, YAML, and managed-launcher
-state, runs the smoke test, and switches the stable command. When OpenClaw is
-managed, its definition is also backed up and switched with `openclaw mcp set`.
-A failed probe automatically restores the data, launcher, and registration.
+The command requires an installed GitHub CLI with `gh attestation verify`, but
+no GitHub login. It retrieves release metadata, assets, and attestation bundles
+from anonymous public endpoints, verifies each published SHA-256 digest and
+signed provenance locally, installs the wheel in `runtime/<version>/venv`,
+retains the previous runtime, creates online backups of SQLite, YAML, and
+managed-launcher state, runs the smoke test, and switches the stable command.
+`GH_TOKEN` and `GITHUB_TOKEN` are neither required nor forwarded. When OpenClaw
+is managed, its definition is also backed up and switched with `openclaw mcp
+set`. A failed probe automatically restores the data, launcher, and registration.
 CLI updates are rejected while documentation synchronization is running. `--resume`
 repairs an incomplete new runtime and `--allow-downgrade` enables an explicit
 rollback. When downgrading below the release that introduced managed reranking,
@@ -446,8 +446,10 @@ and independent.
 The server also performs a non-destructive release check in the background at
 most once every 24 hours. A SQLite lease prevents duplicate checks. The result is
 cached and exposed through `get_update_status`; `refresh=true` forces a read-only
-GitHub query. Missing GitHub CLI access produces a controlled error and never
-stops the MCP server. Configure this behavior under `updates` in
+GitHub query. Public release checks do not invoke `gh`; a missing CLI matters
+only when an update is installed and provenance must be verified locally. Any
+check failure produces a controlled error and never stops the MCP server.
+Configure this behavior under `updates` in
 `config/config.yaml`, including an absolute `gh_command` when the service `PATH`
 does not contain GitHub CLI.
 

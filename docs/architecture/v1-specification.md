@@ -201,7 +201,10 @@ catalog and be selected by an administrator.
 ## Independently distributed BMC catalog
 
 The effective official catalog merges the local workspace manifest and the
-newest checksum-verified cached catalog release. Schema version 2 declares
+newest checksum- and provenance-verified cached catalog release. Public release
+metadata, assets, and attestation bundles are retrieved anonymously; the
+installed GitHub CLI verifies each bundle locally without a GitHub login. Schema
+version 2 declares
 canonical product metadata as data, so a new generic HTML product or version
 does not require a runtime change. A cached positive revision that is the same
 or newer can correct entries with the same identifier; older revisions cannot

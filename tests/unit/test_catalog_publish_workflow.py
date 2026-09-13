@@ -13,6 +13,9 @@ def test_catalog_release_is_verified_before_immutable_publication() -> None:
     upload = workflow.index('gh release upload "${tag}"', draft)
     verify_assets = workflow.index("cmp --silent", upload)
     verify_digests = workflow.index("digest mismatch", verify_assets)
-    publish = workflow.index('gh release edit "${tag}" --draft=false', verify_digests)
+    attest = workflow.index("uses: actions/attest@", verify_digests)
+    publish = workflow.index("gh release edit", attest)
 
-    assert create < draft < upload < verify_assets < verify_digests < publish
+    assert create < draft < upload < verify_assets < verify_digests < attest < publish
+    assert "id-token: write" in workflow
+    assert "attestations: write" in workflow

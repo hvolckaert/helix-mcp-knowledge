@@ -69,7 +69,7 @@ class UpdateSettings(StrictModel):
     retry_minutes: float = Field(default=15.0, ge=1.0, le=1440.0)
     repository: str = Field(
         default="hvolckaert/helix-mcp-knowledge",
-        pattern=r"^[^/\s]+/[^/\s]+$",
+        pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
     )
     gh_command: str = Field(default="gh", min_length=1)
     timeout_seconds: int = Field(default=30, ge=1, le=300)
@@ -82,7 +82,7 @@ class CatalogUpdateSettings(StrictModel):
     retry_minutes: float = Field(default=30.0, ge=1.0, le=1440.0)
     repository: str = Field(
         default="hvolckaert/helix-mcp-knowledge",
-        pattern=r"^[^/\s]+/[^/\s]+$",
+        pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
     )
     release_prefix: str = Field(default="catalog-v", pattern=r"^[A-Za-z0-9._-]+$")
     manifest_asset: str = Field(default="bmc-official-catalog.yaml", pattern=r"^[A-Za-z0-9._-]+$")

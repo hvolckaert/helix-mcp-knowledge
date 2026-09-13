@@ -23,6 +23,13 @@ from typing import Any
 from . import __version__
 from .config import AppConfig, load_config
 from .errors import KnowledgeError
+from .github_public import (
+    GITHUB_API_ROOT,
+    GITHUB_RELEASE_ROOT,
+    PublicGitHubTransport,
+    ReleaseTransport,
+    verify_public_attestation,
+)
 from .managed_installation import (
     DEFAULT_MANAGED_DASHBOARD_PORT,
     ManagedInstallation,
@@ -85,6 +92,8 @@ class Release:
     sha256: str
     requirements_name: str
     requirements_sha256: str
+    url: str | None = None
+    published_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -152,6 +161,7 @@ def update_installation(
     resume: bool = False,
     allow_downgrade: bool = False,
     runner: CommandRunner = subprocess.run,
+    transport: ReleaseTransport | None = None,
     current_version: str | None = None,
     current_python: str | Path | None = None,
     base_python: str | Path | None = None,
@@ -192,11 +202,11 @@ def update_installation(
         _resolve_command(effective_openclaw_command, label="OpenClaw") if use_openclaw else None
     )
     resolved_gh = _resolve_command(gh_command, label="GitHub CLI")
+    release_transport = transport or PublicGitHubTransport()
     release = _resolve_release(
-        resolved_gh,
         repository=normalized_repository,
         requested_version=target_version,
-        runner=runner,
+        transport=release_transport,
     )
     target_runtime = _runtime_paths(workspace, release.version)
     runtime_exists = target_runtime.root.exists()
@@ -276,6 +286,7 @@ def update_installation(
             repository=normalized_repository,
             release=release,
             runner=runner,
+            transport=release_transport,
         )
         requirements = _download_release_asset(
             resolved_gh,
@@ -285,6 +296,7 @@ def update_installation(
             asset_name=release.requirements_name,
             expected_sha256=release.requirements_sha256,
             runner=runner,
+            transport=release_transport,
         )
         _install_runtime(
             target_runtime,
@@ -539,26 +551,26 @@ def _validate_managed_runtime(runtime: RuntimePaths, current_python: Path) -> No
 
 
 def _resolve_release(
-    gh_command: Path,
     *,
     repository: str,
     requested_version: str | None,
-    runner: CommandRunner,
+    transport: ReleaseTransport,
 ) -> Release:
-    command = [str(gh_command), "release", "view"]
+    endpoint = f"{GITHUB_API_ROOT}/repos/{repository}/releases"
     if requested_version:
-        command.append(f"v{_normalize_version(requested_version)}")
-    command.extend(["--repo", repository, "--json", "tagName,isDraft,isPrerelease,assets"])
-    completed = _run(
-        command,
-        runner=runner,
+        endpoint = f"{endpoint}/tags/v{_normalize_version(requested_version)}"
+    else:
+        endpoint = f"{endpoint}/latest"
+    payload = transport.get_json(
+        endpoint,
         timeout=60,
         action="GitHub release discovery",
     )
-    payload = _parse_json(completed.stdout, label="GitHub release metadata")
-    if payload.get("isDraft") or payload.get("isPrerelease"):
+    if not isinstance(payload, dict):
+        raise KnowledgeError("GitHub release metadata must be a JSON object")
+    if payload.get("draft") or payload.get("prerelease"):
         raise KnowledgeError("only stable, published GitHub releases can be installed")
-    tag = str(payload.get("tagName", ""))
+    tag = str(payload.get("tag_name", ""))
     version = _normalize_version(tag)
     if requested_version and version != _normalize_version(requested_version):
         raise KnowledgeError(
@@ -578,6 +590,11 @@ def _resolve_release(
         sha256=sha256,
         requirements_name=RUNTIME_REQUIREMENTS_NAME,
         requirements_sha256=requirements_sha256,
+        url=(
+            str(payload.get("html_url") or "")
+            or f"{GITHUB_RELEASE_ROOT}/{repository}/releases/tag/{tag}"
+        ),
+        published_at=str(payload.get("published_at") or "") or None,
     )
 
 
@@ -602,6 +619,7 @@ def _download_release(
     repository: str,
     release: Release,
     runner: CommandRunner,
+    transport: ReleaseTransport,
 ) -> Path:
     return _download_release_asset(
         gh_command,
@@ -611,6 +629,7 @@ def _download_release(
         asset_name=release.wheel_name,
         expected_sha256=release.sha256,
         runner=runner,
+        transport=transport,
     )
 
 
@@ -623,6 +642,7 @@ def _download_release_asset(
     asset_name: str,
     expected_sha256: str,
     runner: CommandRunner,
+    transport: ReleaseTransport,
 ) -> Path:
     download_root = workspace / "downloads"
     if _is_link(download_root):
@@ -633,37 +653,65 @@ def _download_release_asset(
     destination = download_dir / asset_name
     download_dir.mkdir(parents=True, exist_ok=True)
     if destination.is_file():
-        _verify_sha256(destination, expected_sha256)
+        _verify_release_asset(
+            gh_command,
+            destination,
+            repository=repository,
+            release=release,
+            expected_sha256=expected_sha256,
+            runner=runner,
+            transport=transport,
+        )
         return destination
     if destination.exists():
         raise KnowledgeError(f"release asset destination is not a regular file: {destination}")
     with tempfile.TemporaryDirectory(prefix=".download-", dir=download_dir) as temporary:
         temporary_dir = Path(temporary)
-        _run(
-            [
-                str(gh_command),
-                "release",
-                "download",
-                release.tag,
-                "--repo",
-                repository,
-                "--pattern",
-                asset_name,
-                "--dir",
-                str(temporary_dir),
-            ],
-            runner=runner,
+        downloaded = temporary_dir / asset_name
+        transport.download(
+            (f"{GITHUB_RELEASE_ROOT}/{repository}/releases/download/{release.tag}/{asset_name}"),
+            downloaded,
             timeout=300,
             action="GitHub release download",
         )
-        downloaded = temporary_dir / asset_name
         if not downloaded.is_file():
             raise KnowledgeError(
-                f"GitHub CLI did not download the expected release asset: {downloaded}"
+                f"GitHub did not download the expected release asset: {downloaded}"
             )
-        _verify_sha256(downloaded, expected_sha256)
+        _verify_release_asset(
+            gh_command,
+            downloaded,
+            repository=repository,
+            release=release,
+            expected_sha256=expected_sha256,
+            runner=runner,
+            transport=transport,
+        )
         os.replace(downloaded, destination)
     return destination
+
+
+def _verify_release_asset(
+    gh_command: Path,
+    path: Path,
+    *,
+    repository: str,
+    release: Release,
+    expected_sha256: str,
+    runner: CommandRunner,
+    transport: ReleaseTransport,
+) -> None:
+    _verify_sha256(path, expected_sha256)
+    verify_public_attestation(
+        gh_command,
+        path,
+        repository=repository,
+        sha256=expected_sha256,
+        release_tag=release.tag,
+        signer_workflow=".github/workflows/release.yml",
+        runner=runner,
+        transport=transport,
+    )
 
 
 def _verify_sha256(path: Path, expected: str) -> None:
