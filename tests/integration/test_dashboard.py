@@ -2018,6 +2018,9 @@ def test_dashboard_http_surface_and_csrf_protection(config_path: Path) -> None:
         assert 'id="save-note"' in html
         assert "Changes are validated before saving" in html
         assert "Save and synchronize" in html
+        assert (
+            '<input id="interval-hours" type="number" min="0.01" max="8760" step="0.01" required>'
+        ) in html
         assert 'id="review-dialog"' in html
         assert "Review changes before saving" in html
         assert 'class="tab-dirty"' in html
