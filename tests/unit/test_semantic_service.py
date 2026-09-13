@@ -11,6 +11,7 @@ from helix_mcp_knowledge.semantic_client import SemanticServiceClient
 from helix_mcp_knowledge.semantic_worker import (
     SemanticHTTPServer,
     managed_runtime_is_active,
+    self_test,
     watch_managed_runtime,
 )
 
@@ -18,6 +19,43 @@ from helix_mcp_knowledge.semantic_worker import (
 class FakeEmbedder:
     def encode(self, texts: list[str]) -> list[list[float]]:
         return [[float(len(text)), 1.0] for text in texts]
+
+
+def test_semantic_self_test_uses_the_paired_product_version_payload(
+    tmp_path: Path, monkeypatch
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeClient:
+        @staticmethod
+        def close() -> None:
+            return None
+
+    class FakeVectorIndex:
+        client = FakeClient()
+
+        @staticmethod
+        def upsert(records) -> None:
+            captured.update(records[0].payload)
+
+        @staticmethod
+        def search(*_args, **_kwargs):
+            if captured.get("product_version_pairs") == ["cmdb:26.1"]:
+                return [SimpleNamespace(chunk_id="self-test")]
+            return []
+
+    class FakeRuntime:
+        def __init__(self, **_kwargs) -> None:
+            self.embedder = FakeEmbedder()
+            self.vector_index = FakeVectorIndex()
+
+    monkeypatch.setattr("helix_mcp_knowledge.semantic_worker.SemanticRuntime", FakeRuntime)
+
+    self_test(tmp_path / "model", 2)
+
+    assert captured["product_ids"] == ["cmdb"]
+    assert captured["product_versions"] == ["26.1"]
+    assert captured["product_version_pairs"] == ["cmdb:26.1"]
 
 
 def test_semantic_service_is_loopback_token_protected_and_encodes() -> None:
