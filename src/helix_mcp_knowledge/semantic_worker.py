@@ -221,6 +221,7 @@ def self_test(model_path: Path, dimension: int) -> None:
                         "project_id": None,
                         "product_ids": ["cmdb"],
                         "product_versions": ["26.1"],
+                        "product_version_pairs": ["cmdb:26.1"],
                         "document_type": "concept",
                     },
                 )

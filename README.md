@@ -54,7 +54,7 @@ once, and verifies the result.
 
 ## Release status
 
-Version 1.31.3 provides:
+Version 1.31.4 provides:
 
 - validated YAML configuration and Pydantic domain models;
 - project registration and active-project resolution;
@@ -65,6 +65,8 @@ Version 1.31.3 provides:
 - idempotent ingestion and atomic replacement of documents, chunks, and FTS5 data;
 - durable cleanup of superseded project vectors, including retry after backend failures;
 - optional, dashboard-managed BGE-M3 and persistent local Qdrant retrieval;
+- a corrected Semantic Search self-test using the same paired product/version payload
+  as the production Qdrant filter;
 - hybrid BM25/semantic ranking through Reciprocal Rank Fusion and exact matching;
 - optional local multilingual reranking of an authorized, bounded candidate set;
 - checksum-locked, independently audited dependency sets for every optional component;
@@ -188,7 +190,7 @@ On first run it creates a per-user workspace containing a generic configuration,
 the supported official catalog, and the index directories.
 
 ```bash
-python -m pip install helix_mcp_knowledge-1.31.3-py3-none-any.whl
+python -m pip install helix_mcp_knowledge-1.31.4-py3-none-any.whl
 helix-mcp-knowledge install
 ```
 
@@ -254,13 +256,13 @@ locally. Do not run `gh auth login` for Knowledge updates.
 Windows:
 
 ```powershell
-.\scripts\install-windows.ps1 -Version 1.31.3
+.\scripts\install-windows.ps1 -Version 1.31.4
 ```
 
 WSL or Linux from a checkout:
 
 ```bash
-./scripts/install-linux.sh --version 1.31.3
+./scripts/install-linux.sh --version 1.31.4
 ```
 
 Both installers create a working MCP server with no products selected. Their
@@ -276,7 +278,7 @@ products for an unattended installation. Repeat the option to retain multiple
 versions:
 
 ```bash
-./scripts/install-linux.sh --version 1.31.3 \
+./scripts/install-linux.sh --version 1.31.4 \
   --product cmdb=26.3 \
   --product discovery=current
 ```

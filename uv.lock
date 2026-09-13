@@ -534,7 +534,7 @@ wheels = [
 
 [[package]]
 name = "helix-mcp-knowledge"
-version = "1.31.3"
+version = "1.31.4"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
