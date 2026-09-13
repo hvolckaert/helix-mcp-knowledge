@@ -7,7 +7,10 @@ import http.client
 import json
 import logging
 import os
+import secrets
+import shutil
 import socket
+import stat
 import subprocess
 import sys
 import threading
@@ -17,7 +20,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .config import load_config
-from .dashboard_runtime import DashboardRuntimeManager
+from .dashboard_runtime import (
+    DASHBOARD_MODE_ENV,
+    DashboardRuntimeManager,
+    dashboard_workspace_id,
+)
 from .logging import configure_logging
 from .managed_installation import load_managed_installation
 from .openclaw import DEFAULT_SERVER_NAME, _resolve_command, _run
@@ -65,9 +72,10 @@ class DashboardUpdateWorkerLauncher:
         self.dashboard_token = dashboard_token
         self.python_executable = python_executable or sys.executable
         self._process: subprocess.Popen[bytes] | None = None
+        self._started = False
 
     def start(self) -> DashboardUpdateWorkerProcess:
-        if self._process is not None:
+        if self._started:
             raise RuntimeError("dashboard update worker already launched")
         self.errors_path.mkdir(parents=True, exist_ok=True)
         log_path = self.errors_path / "dashboard-update-worker.log"
@@ -107,14 +115,115 @@ class DashboardUpdateWorkerLauncher:
             "--dashboard-port",
             str(self.dashboard_port),
         ]
+        if os.name != "nt" and environment.get(DASHBOARD_MODE_ENV) == "systemd_user":
+            process = self._start_systemd_worker(command, log_path)
+            self._started = True
+            return process
         with log_path.open("ab", buffering=0) as log:
             self._process = subprocess.Popen(command, stderr=log, **kwargs)
+        self._started = True
         threading.Thread(
             target=self._process.wait,
             name="helix-dashboard-update-worker-reaper",
             daemon=True,
         ).start()
         return DashboardUpdateWorkerProcess(pid=self._process.pid)
+
+    def _start_systemd_worker(
+        self, command: list[str], log_path: Path
+    ) -> DashboardUpdateWorkerProcess:
+        """Launch outside the dashboard unit so its control group can stop safely."""
+
+        systemd_run = shutil.which("systemd-run")
+        systemctl = shutil.which("systemctl")
+        if systemd_run is None or systemctl is None:
+            raise RuntimeError(
+                "the dashboard is managed by systemd but systemd-run/systemctl is unavailable"
+            )
+        token_path: Path | None = None
+        if self.dashboard_token:
+            token_path = self.errors_path / (f".dashboard-update-token-{secrets.token_hex(16)}")
+            descriptor = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            try:
+                with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                    stream.write(self.dashboard_token)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            except BaseException:
+                token_path.unlink(missing_ok=True)
+                raise
+            command.extend(["--dashboard-token-file", str(token_path)])
+        unit = (
+            f"helix-mcp-knowledge-update-{dashboard_workspace_id(self.workspace)}-"
+            f"{secrets.token_hex(4)}.service"
+        )
+        transient_command = [
+            systemd_run,
+            "--user",
+            "--quiet",
+            "--collect",
+            "--service-type=exec",
+            f"--unit={unit}",
+            f"--working-directory={self.workspace}",
+            "--property=StandardInput=null",
+            "--property=StandardOutput=null",
+            f"--property=StandardError=append:{log_path}",
+            "--property=UMask=0077",
+            "--setenv=PYTHONUNBUFFERED=1",
+            *command,
+        ]
+        launcher_environment = os.environ.copy()
+        launcher_environment.pop(DASHBOARD_TOKEN_ENV, None)
+        try:
+            launched = subprocess.run(
+                transient_command,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+                env=launcher_environment,
+            )
+            if launched.returncode != 0:
+                detail = (launched.stderr or launched.stdout).strip()
+                raise RuntimeError(
+                    "could not start the independent dashboard update service"
+                    + (f": {detail}" if detail else "")
+                )
+            for _ in range(40):
+                shown = subprocess.run(
+                    [
+                        systemctl,
+                        "--user",
+                        "show",
+                        unit,
+                        "--property=MainPID",
+                        "--value",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False,
+                    env=launcher_environment,
+                )
+                raw_pid = shown.stdout.strip()
+                if shown.returncode == 0 and raw_pid.isdigit() and int(raw_pid) > 0:
+                    return DashboardUpdateWorkerProcess(pid=int(raw_pid))
+                time.sleep(0.05)
+            raise RuntimeError(
+                "the independent dashboard update service did not report a worker process"
+            )
+        except BaseException:
+            subprocess.run(
+                [systemctl, "--user", "stop", unit],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+                check=False,
+                env=launcher_environment,
+            )
+            if token_path is not None:
+                token_path.unlink(missing_ok=True)
+            raise
 
 
 def run_update(
@@ -404,6 +513,29 @@ def _timestamp() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _consume_dashboard_token(path: Path) -> str:
+    """Read and remove the one-time token passed to a transient update service."""
+
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags)
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_mode & 0o077:
+            raise RuntimeError("dashboard update token file is not private")
+        with os.fdopen(descriptor, "r", encoding="utf-8") as stream:
+            descriptor = -1
+            token = stream.read(4097)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        path.unlink(missing_ok=True)
+    if not token or len(token) > 4096:
+        raise RuntimeError("dashboard update token file is empty or invalid")
+    return token
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="helix-mcp-knowledge-dashboard-update")
     parser.add_argument("--config", required=True)
@@ -413,7 +545,11 @@ def main() -> int:
     parser.add_argument("--openclaw-command", default="openclaw")
     parser.add_argument("--gh-command", default="gh")
     parser.add_argument("--dashboard-port", type=int, required=True)
+    parser.add_argument("--dashboard-token-file", type=Path)
     args = parser.parse_args()
+    dashboard_token = os.environ.get(DASHBOARD_TOKEN_ENV)
+    if args.dashboard_token_file is not None:
+        dashboard_token = _consume_dashboard_token(args.dashboard_token_file)
     return (
         0
         if run_update(
@@ -424,7 +560,7 @@ def main() -> int:
             openclaw_command=args.openclaw_command,
             gh_command=args.gh_command,
             dashboard_port=args.dashboard_port,
-            dashboard_token=os.environ.get(DASHBOARD_TOKEN_ENV),
+            dashboard_token=dashboard_token,
         )
         else 1
     )
