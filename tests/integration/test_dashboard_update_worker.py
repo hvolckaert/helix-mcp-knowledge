@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import os
+import stat
 import subprocess
 import threading
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from helix_mcp_knowledge.application import KnowledgeApplication
+from helix_mcp_knowledge.dashboard_runtime import DASHBOARD_MODE_ENV
 from helix_mcp_knowledge.dashboard_update_worker import (
     DASHBOARD_UPDATE_JOB,
     DashboardUpdateWorkerLauncher,
+    _consume_dashboard_token,
     _documentation_sync_active,
     _wait_for_documentation_sync,
     run_update,
@@ -32,6 +37,7 @@ class FakeProcess:
 
 
 def test_dashboard_update_launcher_detaches_from_http_process(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv(DASHBOARD_MODE_ENV, raising=False)
     captured: dict[str, object] = {}
 
     def fake_popen(command, **kwargs):
@@ -92,6 +98,68 @@ def test_dashboard_update_launcher_detaches_from_http_process(tmp_path: Path, mo
         assert kwargs["creationflags"]
     else:
         assert kwargs["start_new_session"] is True
+
+
+@pytest.mark.skipif(os.name == "nt", reason="systemd user services are POSIX-only")
+def test_systemd_dashboard_update_launcher_uses_independent_transient_unit(
+    tmp_path: Path, monkeypatch
+) -> None:
+    captured: list[list[str]] = []
+
+    def fake_run(command, **_kwargs):
+        captured.append(command)
+        if command[0] == "/usr/bin/systemctl":
+            return SimpleNamespace(returncode=0, stdout="4321\n", stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setenv(DASHBOARD_MODE_ENV, "systemd_user")
+    monkeypatch.setattr(
+        "helix_mcp_knowledge.dashboard_update_worker.shutil.which",
+        lambda command: f"/usr/bin/{command}",
+    )
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: pytest.fail("systemd-managed update used Popen"),
+    )
+    config_path = tmp_path / "config/config.yaml"
+    config_path.parent.mkdir()
+    config_path.write_text("placeholder", encoding="utf-8")
+    launcher = DashboardUpdateWorkerLauncher(
+        config_path=config_path,
+        workspace=tmp_path,
+        errors_path=tmp_path / "data/errors",
+        repository="owner/repository",
+        target_version="1.9.0",
+        server_name="custom_knowledge",
+        openclaw_command="/opt/openclaw",
+        gh_command="/opt/gh",
+        dashboard_port=8877,
+        dashboard_token="private-dashboard-token",
+        python_executable="/runtime/python",
+    )
+
+    process = launcher.start()
+
+    assert process.pid == 4321
+    launch_command = captured[0]
+    assert launch_command[0] == "/usr/bin/systemd-run"
+    assert "--user" in launch_command
+    assert "--collect" in launch_command
+    assert "--service-type=exec" in launch_command
+    assert any(
+        argument.startswith("--unit=helix-mcp-knowledge-update-") for argument in launch_command
+    )
+    assert "helix_mcp_knowledge.dashboard_update_worker" in launch_command
+    assert "private-dashboard-token" not in launch_command
+    token_option = launch_command.index("--dashboard-token-file")
+    token_path = Path(launch_command[token_option + 1])
+    assert token_path.read_text(encoding="utf-8") == "private-dashboard-token"
+    assert stat.S_IMODE(token_path.stat().st_mode) == 0o600
+
+    assert _consume_dashboard_token(token_path) == "private-dashboard-token"
+    assert not token_path.exists()
 
 
 def test_update_worker_waits_for_active_documentation_sync(app, monkeypatch) -> None:

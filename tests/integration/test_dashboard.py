@@ -242,6 +242,87 @@ def test_dashboard_normalizes_a_stale_successful_update_state() -> None:
     assert normalized == {"status": "success", "target_version": "1.23.0"}
 
 
+def test_dashboard_reconciles_completed_update_after_restart(config_path: Path) -> None:
+    database = Database(load_config(config_path).sqlite_path)
+    database.initialize()
+    store = AutomationStore(database)
+    store.update_state(
+        "dashboard-update",
+        {
+            "status": "running",
+            "current_version": "1.31.1",
+            "target_version": "1.31.2",
+            "process_id": 1234,
+        },
+    )
+
+    reconciled = DashboardService._reconcile_dashboard_update_state(
+        store,
+        store.state("dashboard-update"),
+        server_version="1.31.2",
+    )
+
+    assert reconciled["status"] == "success"
+    assert reconciled["result_status"] == "updated"
+    assert "process_id" not in reconciled
+    assert store.state("dashboard-update")["status"] == "success"
+
+
+def test_dashboard_reconciles_orphaned_update_worker(config_path: Path, monkeypatch) -> None:
+    database = Database(load_config(config_path).sqlite_path)
+    database.initialize()
+    store = AutomationStore(database)
+    store.update_state(
+        "dashboard-update",
+        {
+            "status": "running",
+            "current_version": "1.31.1",
+            "target_version": "1.31.2",
+            "process_id": 1234,
+        },
+    )
+    monkeypatch.setattr(
+        "helix_mcp_knowledge.dashboard._dashboard_update_worker_is_active",
+        lambda _process_id: False,
+    )
+
+    reconciled = DashboardService._reconcile_dashboard_update_state(
+        store,
+        store.state("dashboard-update"),
+        server_version="1.31.1",
+    )
+
+    assert reconciled["status"] == "error"
+    assert "stopped unexpectedly" in str(reconciled["error"])
+    assert "process_id" not in reconciled
+    assert store.state("dashboard-update")["status"] == "error"
+
+
+def test_dashboard_preserves_active_update_worker(config_path: Path, monkeypatch) -> None:
+    database = Database(load_config(config_path).sqlite_path)
+    database.initialize()
+    store = AutomationStore(database)
+    active = {
+        "status": "waiting_for_sync",
+        "current_version": "1.31.1",
+        "target_version": "1.31.2",
+        "process_id": 1234,
+    }
+    store.update_state("dashboard-update", active)
+    monkeypatch.setattr(
+        "helix_mcp_knowledge.dashboard._dashboard_update_worker_is_active",
+        lambda _process_id: True,
+    )
+
+    reconciled = DashboardService._reconcile_dashboard_update_state(
+        store,
+        store.state("dashboard-update"),
+        server_version="1.31.1",
+    )
+
+    assert reconciled == active
+
+
 def test_dashboard_starts_optional_semantic_install_on_first_activation(
     config_path: Path, monkeypatch
 ) -> None:

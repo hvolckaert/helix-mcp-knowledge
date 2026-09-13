@@ -14,6 +14,7 @@ import time
 import webbrowser
 from copy import deepcopy
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
@@ -102,6 +103,39 @@ DEFAULT_DASHBOARD_PORT = DEFAULT_MANAGED_DASHBOARD_PORT
 LOGGER = logging.getLogger(__name__)
 RERANKER_DEFAULT_CANDIDATES = 10
 RERANKER_LEGACY_PLACEHOLDER_CANDIDATES = 20
+
+
+def _dashboard_update_worker_is_active(process_id: int) -> bool:
+    """Return whether a PID still belongs to the dashboard update worker."""
+
+    if process_id <= 0:
+        return False
+    try:
+        os.kill(process_id, 0)
+    except (OSError, ValueError):
+        return False
+    if os.name == "nt":  # pragma: no cover - process inspection differs on Windows
+        return True
+    try:
+        command_line = Path(f"/proc/{process_id}/cmdline").read_bytes()
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return b"helix_mcp_knowledge.dashboard_update_worker" in command_line
+
+
+def _dashboard_update_request_is_recent(state: dict[str, object]) -> bool:
+    requested_at = state.get("requested_at")
+    if not isinstance(requested_at, str):
+        return False
+    try:
+        requested = datetime.fromisoformat(requested_at.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if requested.tzinfo is None:
+        requested = requested.replace(tzinfo=UTC)
+    return 0 <= (datetime.now(UTC) - requested).total_seconds() <= 60
 
 
 @dataclass(frozen=True)
@@ -479,7 +513,12 @@ class DashboardService:
             "sync": application.get_sync_status().model_dump(mode="json"),
             "update": application.release_update_checker.status().model_dump(mode="json"),
             "dashboard_update": self._dashboard_update_state(
-                store.state(DASHBOARD_UPDATE_JOB), server_version=__version__
+                self._reconcile_dashboard_update_state(
+                    store,
+                    store.state(DASHBOARD_UPDATE_JOB),
+                    server_version=__version__,
+                ),
+                server_version=__version__,
             ),
             "ocr": {
                 **ocr_component.to_dict(),
@@ -1278,7 +1317,11 @@ class DashboardService:
                     "run the native installer first"
                 )
             store = AutomationStore(application.database)
-            current = store.state(DASHBOARD_UPDATE_JOB)
+            current = self._reconcile_dashboard_update_state(
+                store,
+                store.state(DASHBOARD_UPDATE_JOB),
+                server_version=__version__,
+            )
             if current.get("status") in {"pending", "waiting_for_sync", "running"}:
                 return {
                     "status": "already_running",
@@ -2219,6 +2262,51 @@ class DashboardService:
             temporary.replace(path)
         finally:
             temporary.unlink(missing_ok=True)
+
+    @staticmethod
+    def _reconcile_dashboard_update_state(
+        store: AutomationStore,
+        state: dict[str, object],
+        *,
+        server_version: str,
+    ) -> dict[str, object]:
+        """Recover update state after a worker or dashboard was interrupted."""
+
+        if state.get("status") not in {"pending", "waiting_for_sync", "running"}:
+            return state
+        if state.get("target_version") == server_version:
+            reconciled = {
+                **state,
+                "status": "success",
+                "current_version": server_version,
+                "finished_at": datetime.now(UTC).isoformat(),
+                "result_status": "updated",
+            }
+            reconciled.pop("process_id", None)
+            reconciled.pop("error", None)
+            store.update_state(DASHBOARD_UPDATE_JOB, reconciled)
+            return reconciled
+
+        process_id = state.get("process_id")
+        if isinstance(process_id, int) and not isinstance(process_id, bool):
+            if _dashboard_update_worker_is_active(process_id):
+                return state
+        elif _dashboard_update_request_is_recent(state):
+            return state
+
+        reconciled = {
+            **state,
+            "status": "error",
+            "current_version": server_version,
+            "finished_at": datetime.now(UTC).isoformat(),
+            "error": (
+                "the dashboard update worker stopped unexpectedly; "
+                "check its log and retry the update"
+            ),
+        }
+        reconciled.pop("process_id", None)
+        store.update_state(DASHBOARD_UPDATE_JOB, reconciled)
+        return reconciled
 
     @staticmethod
     def _dashboard_update_state(
