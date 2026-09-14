@@ -27,9 +27,9 @@ Each release contains:
 
 The server discovers releases and downloads both assets and their attestation
 bundles through anonymous public GitHub endpoints. It verifies the published
-asset digests, uses the installed but unauthenticated GitHub CLI to validate the
-bundles locally against the catalog publication workflow, checks the catalog's
-own SHA-256 file, validates the complete Pydantic schema, checks product aliases
+asset digests, uses the private pinned GitHub CLI managed in the Knowledge
+workspace to validate bundles against the publication workflow, checks the
+catalog's own SHA-256 file, validates the complete Pydantic schema, checks product aliases
 and the URL domain allowlist, and only then atomically replaces its cached
 catalog. `GH_TOKEN` and `GITHUB_TOKEN` are neither required nor forwarded. The
 packaged and local catalogs remain a safe fallback when GitHub is unavailable.
@@ -53,7 +53,6 @@ catalog_updates:
   manifest_asset: bmc-official-catalog.yaml
   checksum_asset: bmc-official-catalog.sha256
   cache_path: data/cache/official-catalog/bmc-official-catalog.yaml
-  gh_command: gh
   timeout_seconds: 30
 ```
 

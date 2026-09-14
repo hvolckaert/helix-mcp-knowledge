@@ -186,6 +186,7 @@ def main() -> int:
     supervise.add_argument("--port", type=int, default=DEFAULT_DASHBOARD_PORT)
     supervise.add_argument("--server-name", default=DEFAULT_SERVER_NAME)
     supervise.add_argument("--openclaw-command", default="openclaw")
+    supervise.add_argument("--gh-command", default=None, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("dashboard port must be between 1 and 65535")

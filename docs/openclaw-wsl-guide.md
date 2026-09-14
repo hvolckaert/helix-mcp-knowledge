@@ -9,16 +9,12 @@ first synchronization, acceptance checks, transactional updates, and rollback.
 - WSL with an active Linux distribution, or a supported Linux host.
 - Python 3.12 or later with virtual-environment support.
 - OpenClaw is optional and provides the recommended automatic MCP integration.
-- A recent GitHub CLI (`gh`) with `gh attestation verify`; authentication is not
-  required for this public repository.
 - HTTPS access to `docs.helixops.ai`.
 
 Verify the environment:
 
 ```bash
 python3 --version
-gh --version
-gh attestation verify --help
 ```
 
 If OpenClaw is installed, also run `openclaw --version`.
@@ -310,10 +306,11 @@ Call helix_knowledge__get_update_status. Repeat with refresh=true and report
 current_version, latest_version, and update_available. Do not install anything.
 ```
 
-Use the `updates` section in `config/config.yaml` to change the interval,
-disable checks, or set an absolute `gh_command`. Public-endpoint failures do not
-block search or MCP startup. `gh` is used only when installing an update to
-verify the anonymously downloaded attestation bundles locally.
+Use the `updates` section in `config/config.yaml` to change the interval or
+disable checks. Public-endpoint failures do not block search or MCP startup.
+Installation provisions a private, pinned GitHub CLI inside the workspace; it
+requires no `sudo`, login, or `PATH` changes and is used only for local
+verification of anonymously downloaded attestation bundles.
 
 ## 6. Private projects
 
@@ -349,10 +346,11 @@ activate the latest stable release:
   update --openclaw-command /usr/bin/openclaw
 ```
 
-Use `--version 1.31.4` to pin a release. The updater requires `gh attestation
-verify` but no GitHub login. It obtains metadata, assets, and attestation bundles
-from anonymous public endpoints, does not forward `GH_TOKEN` or `GITHUB_TOKEN`,
-verifies the published SHA-256 and provenance locally, installs a versioned
+Use `--version 1.31.4` to pin a release. The updater installs or reuses the
+private, pinned GitHub CLI in the Knowledge workspace. It obtains metadata,
+assets, and attestation bundles from anonymous public endpoints, strips GitHub
+token, host, and repository overrides, verifies SHA-256 and provenance locally,
+installs a versioned
 runtime, backs up configuration, SQLite, and the stable launcher, and runs the
 smoke test. It
 then switches the stable launcher. For OpenClaw-managed installations it also

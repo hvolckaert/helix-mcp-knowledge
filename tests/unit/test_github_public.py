@@ -6,6 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from helix_mcp_knowledge.errors import KnowledgeError
 from helix_mcp_knowledge.github_public import (
     PublicGitHubTransport,
     verify_public_attestation,
@@ -46,6 +47,31 @@ def test_public_transport_never_forwards_github_tokens(
     assert len(requests) == 2
 
 
+@pytest.mark.parametrize("operation", ["json", "download"])
+def test_public_transport_rejects_redirects_outside_github(tmp_path: Path, operation: str) -> None:
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"Location": "https://example.test/private"})
+
+    transport = PublicGitHubTransport(transport=httpx.MockTransport(handle))
+    if operation == "json":
+        with pytest.raises(KnowledgeError, match="trusted GitHub hosts"):
+            transport.get_json(
+                "https://api.github.com/repos/example/public/releases/latest",
+                timeout=30,
+                action="test metadata",
+            )
+    else:
+        destination = tmp_path / "asset.whl"
+        with pytest.raises(KnowledgeError, match="trusted GitHub hosts"):
+            transport.download(
+                "https://github.com/example/public/releases/download/v1.0.0/asset.whl",
+                destination,
+                timeout=30,
+                action="test download",
+            )
+        assert not destination.exists()
+
+
 def test_attestation_verification_uses_public_bundle_and_sanitized_environment(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -79,6 +105,7 @@ def test_attestation_verification_uses_public_bundle_and_sanitized_environment(
         signer_workflow=".github/workflows/release.yml",
         runner=runner,
         transport=Transport(),
+        workspace=tmp_path,
     )
 
     assert urls == [f"https://api.github.com/repos/example/public/attestations/sha256:{'a' * 64}"]
@@ -94,3 +121,6 @@ def test_attestation_verification_uses_public_bundle_and_sanitized_environment(
     assert isinstance(environment, dict)
     assert "GH_TOKEN" not in environment
     assert "GITHUB_TOKEN" not in environment
+    assert environment["GH_CONFIG_DIR"] == str(tmp_path / "tools/github-cli/config")
+    assert environment["GH_NO_UPDATE_NOTIFIER"] == "1"
+    assert environment["GH_PROMPT_DISABLED"] == "1"

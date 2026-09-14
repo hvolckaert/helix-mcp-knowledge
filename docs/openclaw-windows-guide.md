@@ -22,16 +22,12 @@ not install a Windows service and requires no administrator rights.
 - PowerShell 7 recommended.
 - Python 3.12 or later with the `py` launcher.
 - OpenClaw is optional and provides the recommended automatic MCP integration.
-- A recent GitHub CLI (`gh`) with `gh attestation verify`; authentication is not
-  required for this public repository.
 - HTTPS access to `docs.helixops.ai`.
 
 Verify the environment:
 
 ```powershell
 py -3.12 --version
-gh --version
-gh attestation verify --help
 ```
 
 If OpenClaw is installed, also run `openclaw.cmd --version` and
@@ -341,10 +337,11 @@ hours. It never installs updates automatically. `status` exposes the cached
 result as `release_update`; agents can call `get_update_status` with
 `refresh=true` for an immediate read-only check.
 
-Use the `updates` section in `config\config.yaml` to change the interval,
-disable checks, or set an absolute path to `gh.exe`. Public-endpoint errors never
-block search or MCP startup. `gh` is used only when installing an update to
-verify the anonymously downloaded attestation bundles locally.
+Use the `updates` section in `config\config.yaml` to change the interval or
+disable checks. Public-endpoint errors never block search or MCP startup.
+Installation provisions a private, pinned GitHub CLI inside the workspace; it
+requires no administrator rights, login, or `PATH` changes and is used only for
+local verification of anonymously downloaded attestation bundles.
 
 ## 7. Private projects
 
@@ -377,10 +374,11 @@ activate the latest stable release:
   --openclaw-command $OpenClawCommand
 ```
 
-Use `--version 1.31.4` to pin a release. The updater requires `gh attestation
-verify` but no GitHub login. It obtains metadata, assets, and attestation bundles
-from anonymous public endpoints, does not forward `GH_TOKEN` or `GITHUB_TOKEN`,
-verifies the published SHA-256 and provenance locally, installs a versioned
+Use `--version 1.31.4` to pin a release. The updater installs or reuses the
+private, pinned GitHub CLI in the Knowledge workspace. It obtains metadata,
+assets, and attestation bundles from anonymous public endpoints, strips GitHub
+token, host, and repository overrides, verifies SHA-256 and provenance locally,
+installs a versioned
 runtime, backs up configuration, SQLite, and the stable launcher, and runs the
 smoke test. It
 then switches the stable launcher. For OpenClaw-managed installations it also
@@ -461,7 +459,8 @@ seconds is not, by itself, a failure.
 
 ## 11. Windows acceptance checklist
 
-- [ ] Python 3.12 and GitHub CLI work for the same user.
+- [ ] Python 3.12 works for the installing user.
+- [ ] The managed GitHub CLI reports the pinned version under `tools\github-cli`.
 - [ ] The wheel came from the GitHub release, not a checkout.
 - [ ] `pip check` reports no broken dependencies.
 - [ ] The `.exe` entry points exist under `venv\Scripts`.

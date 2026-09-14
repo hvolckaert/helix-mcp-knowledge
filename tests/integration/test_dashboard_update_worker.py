@@ -82,10 +82,10 @@ def test_dashboard_update_launcher_detaches_from_http_process(tmp_path: Path, mo
         "custom_knowledge",
         "--openclaw-command",
         "/opt/openclaw",
-        "--gh-command",
-        "/opt/gh",
         "--dashboard-port",
         "8877",
+        "--gh-command",
+        "/opt/gh",
     ]
     kwargs = captured["kwargs"]
     assert kwargs["cwd"] == tmp_path
