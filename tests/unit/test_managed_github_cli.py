@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import stat
 import subprocess
 import tarfile
@@ -169,7 +170,8 @@ def test_managed_cli_is_installed_reused_and_isolated(
     assert installed.downloaded is True
     assert reused.downloaded is False
     assert installed.command.read_bytes() == binary
-    assert stat.S_IMODE(installed.command.stat().st_mode) == 0o700
+    if os.name != "nt":
+        assert stat.S_IMODE(installed.command.stat().st_mode) == 0o700
     assert len(transport.calls) == 1
     assert [call[0][1:] for call in runner.calls] == [
         ["--version"],
