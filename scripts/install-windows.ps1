@@ -190,8 +190,8 @@ function Save-TrustedGitHubAsset {
                     continue
                 }
                 $response.EnsureSuccessStatusCode()
-                if ($response.Content.Headers.ContentLength -and `
-                    $response.Content.Headers.ContentLength.Value -gt $MaxBytes) {
+                $contentLength = $response.Content.Headers.ContentLength
+                if ($null -ne $contentLength -and [long]$contentLength -gt $MaxBytes) {
                     throw "GitHub asset is too large: $Destination"
                 }
                 $inputStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
