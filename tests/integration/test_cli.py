@@ -7,6 +7,7 @@ import pytest
 
 from helix_mcp_knowledge.cli.main import main
 from helix_mcp_knowledge.config import load_config
+from helix_mcp_knowledge.github_cli import GITHUB_CLI_VERSION, ManagedGitHubCli
 from helix_mcp_knowledge.managed_installation import (
     load_managed_installation,
     stable_launcher_path,
@@ -29,6 +30,30 @@ class FakeDashboardRuntimeManager:
             }
         )
         return SimpleNamespace(status=status, process_id=8765, to_dict=status.to_dict)
+
+
+@pytest.fixture(autouse=True)
+def managed_github_cli(monkeypatch):
+    def provision(workspace, **_kwargs):
+        executable = "gh.exe" if os.name == "nt" else "gh"
+        command = Path(workspace) / "tools/github-cli" / GITHUB_CLI_VERSION / "bin" / executable
+        command.parent.mkdir(parents=True, exist_ok=True)
+        command.write_text("managed github cli", encoding="utf-8")
+        if os.name != "nt":
+            command.chmod(0o700)
+        return ManagedGitHubCli(
+            version=GITHUB_CLI_VERSION,
+            command=command,
+            platform="windows" if os.name == "nt" else "linux",
+            architecture="amd64",
+            archive_sha256="a" * 64,
+            binary_sha256="b" * 64,
+            source_url="https://github.com/cli/cli/releases/download/v2.100.0/test",
+            installed=True,
+            downloaded=True,
+        )
+
+    monkeypatch.setattr("helix_mcp_knowledge.cli.main.ensure_managed_github_cli", provision)
 
 
 def test_cli_ingests_project_document(config_path: Path, capsys) -> None:
@@ -249,7 +274,7 @@ def test_cli_creates_client_neutral_managed_installation(
     assert managed.client == "standalone"
 
 
-def test_cli_persists_github_command_for_managed_background_checks(
+def test_cli_migrates_legacy_github_command_for_managed_background_checks(
     tmp_path: Path, capsys, monkeypatch
 ) -> None:
     workspace = tmp_path / "managed-github"
@@ -282,8 +307,9 @@ def test_cli_persists_github_command_for_managed_background_checks(
     config = load_config(workspace / "config/config.yaml")
 
     assert exit_code == 0
-    assert config.updates.gh_command == str(gh.resolve())
-    assert config.catalog_updates.gh_command == str(gh.resolve())
+    managed = workspace / "tools/github-cli" / GITHUB_CLI_VERSION / "bin" / gh.name
+    assert config.updates.gh_command == str(managed.resolve())
+    assert config.catalog_updates.gh_command == str(managed.resolve())
 
 
 def test_cli_initializes_and_registers_openclaw_workspace(

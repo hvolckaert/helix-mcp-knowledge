@@ -15,6 +15,7 @@ from helix_mcp_knowledge import updater
 from helix_mcp_knowledge.application import KnowledgeApplication
 from helix_mcp_knowledge.config import AppConfig, load_config
 from helix_mcp_knowledge.errors import KnowledgeError
+from helix_mcp_knowledge.github_cli import GITHUB_CLI_VERSION, ManagedGitHubCli
 from helix_mcp_knowledge.managed_installation import (
     activate_managed_installation,
     load_managed_installation,
@@ -646,6 +647,95 @@ def test_update_dry_run_does_not_download_or_mutate(config_path: Path) -> None:
         "https://api.github.com/repos/hvolckaert/helix-mcp-knowledge/releases/latest"
     ]
     assert not (config_path.parent.parent / "runtime" / TARGET_VERSION).exists()
+
+
+def test_update_dry_run_reports_managed_github_cli_without_provisioning(
+    config_path: Path,
+) -> None:
+    current_python, current_server, base_python, _gh, openclaw = _managed_installation(config_path)
+    workspace = config_path.parent.parent
+    runner = FakeUpdateRunner(
+        workspace=workspace,
+        config_path=config_path,
+        openclaw=openclaw,
+        previous_server=current_server,
+    )
+
+    result = update_installation(
+        config_path=config_path,
+        openclaw_command=openclaw,
+        runner=runner,
+        current_version=CURRENT_VERSION,
+        current_python=current_python,
+        base_python=base_python,
+        dry_run=True,
+    )
+
+    assert result.status == "planned"
+    assert result.github_cli is not None
+    assert result.github_cli.version == GITHUB_CLI_VERSION
+    executable = "gh.exe" if os.name == "nt" else "gh"
+    assert result.github_cli.command == (
+        workspace / "tools/github-cli" / GITHUB_CLI_VERSION / "bin" / executable
+    )
+    assert result.github_cli.downloaded is False
+    expected_asset = (
+        f"gh_{GITHUB_CLI_VERSION}_windows_amd64.zip"
+        if os.name == "nt"
+        else f"gh_{GITHUB_CLI_VERSION}_linux_amd64.tar.gz"
+    )
+    assert result.github_cli.source_url.endswith(f"/v{GITHUB_CLI_VERSION}/{expected_asset}")
+    assert not (workspace / "tools").exists()
+    assert runner.calls == []
+
+
+def test_update_uses_managed_github_cli_by_default(config_path: Path, monkeypatch) -> None:
+    current_python, current_server, base_python, _gh, openclaw = _managed_installation(config_path)
+    workspace = config_path.parent.parent
+    managed_command = workspace / "tools/github-cli/2.100.0/bin/gh"
+    managed_command.parent.mkdir(parents=True)
+    managed_command.write_text("managed", encoding="utf-8")
+    managed_command.chmod(0o700)
+    calls: list[Path] = []
+
+    def provision(selected_workspace, **_kwargs):
+        calls.append(Path(selected_workspace))
+        return ManagedGitHubCli(
+            version=GITHUB_CLI_VERSION,
+            command=managed_command,
+            platform="linux",
+            architecture="amd64",
+            archive_sha256="a" * 64,
+            binary_sha256="b" * 64,
+            source_url="https://github.com/cli/cli/releases/download/v2.100.0/test",
+            installed=True,
+            downloaded=False,
+        )
+
+    monkeypatch.setattr(updater, "ensure_managed_github_cli", provision)
+    runner = FakeUpdateRunner(
+        workspace=workspace,
+        config_path=config_path,
+        openclaw=openclaw,
+        previous_server=current_server,
+    )
+
+    result = update_installation(
+        config_path=config_path,
+        openclaw_command=openclaw,
+        runner=runner,
+        current_version=CURRENT_VERSION,
+        current_python=current_python,
+        base_python=base_python,
+    )
+
+    assert result.status == "updated"
+    assert result.github_cli is not None
+    assert result.github_cli.command == managed_command
+    assert calls == [workspace]
+    attestation_calls = [call for call in runner.calls if call[1:3] == ["attestation", "verify"]]
+    assert attestation_calls
+    assert all(call[0] == str(managed_command) for call in attestation_calls)
 
 
 def test_update_rejects_a_corrupt_release_before_creating_runtime(config_path: Path) -> None:

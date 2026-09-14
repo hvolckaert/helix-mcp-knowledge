@@ -23,6 +23,11 @@ from typing import Any
 from . import __version__
 from .config import AppConfig, load_config
 from .errors import KnowledgeError
+from .github_cli import (
+    ManagedGitHubCli,
+    ensure_managed_github_cli,
+    managed_github_cli_plan,
+)
 from .github_public import (
     GITHUB_API_ROOT,
     GITHUB_RELEASE_ROOT,
@@ -121,6 +126,7 @@ class UpdateResult:
     runtime_exists: bool = False
     client_integration: str = "standalone"
     storage_retention: RetentionResult | None = None
+    github_cli: ManagedGitHubCli | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -144,6 +150,7 @@ class UpdateResult:
             "storage_retention": (
                 self.storage_retention.to_dict() if self.storage_retention else None
             ),
+            "github_cli": self.github_cli.to_dict() if self.github_cli else None,
         }
 
 
@@ -153,7 +160,7 @@ def update_installation(
     repository: str = DEFAULT_REPOSITORY,
     target_version: str | None = None,
     openclaw_command: str | Path = "openclaw",
-    gh_command: str | Path = "gh",
+    gh_command: str | Path | None = None,
     server_name: str = DEFAULT_SERVER_NAME,
     probe: bool = True,
     reload: bool = True,
@@ -201,7 +208,16 @@ def update_installation(
     resolved_openclaw = (
         _resolve_command(effective_openclaw_command, label="OpenClaw") if use_openclaw else None
     )
-    resolved_gh = _resolve_command(gh_command, label="GitHub CLI")
+    github_cli = None
+    if gh_command is None:
+        github_cli = (
+            managed_github_cli_plan(workspace)
+            if dry_run
+            else ensure_managed_github_cli(workspace, runner=runner)
+        )
+        resolved_gh = github_cli.command
+    else:
+        resolved_gh = _resolve_command(gh_command, label="GitHub CLI")
     release_transport = transport or PublicGitHubTransport()
     release = _resolve_release(
         repository=normalized_repository,
@@ -225,6 +241,7 @@ def update_installation(
             backup=None,
             sha256=release.sha256,
             client_integration="openclaw" if use_openclaw else "standalone",
+            github_cli=github_cli,
         )
     if target_tuple < current_tuple and not allow_downgrade:
         raise KnowledgeError(
@@ -248,6 +265,7 @@ def update_installation(
             backup=None,
             sha256=release.sha256,
             client_integration="openclaw" if use_openclaw else "standalone",
+            github_cli=github_cli,
         )
 
     retention_clock = clock or (lambda: datetime.now(UTC))
@@ -456,6 +474,7 @@ def update_installation(
             reloaded=reload and use_openclaw,
             client_integration="openclaw" if use_openclaw else "standalone",
             storage_retention=storage_retention,
+            github_cli=github_cli,
         )
 
 
@@ -656,6 +675,7 @@ def _download_release_asset(
         _verify_release_asset(
             gh_command,
             destination,
+            workspace=workspace,
             repository=repository,
             release=release,
             expected_sha256=expected_sha256,
@@ -681,6 +701,7 @@ def _download_release_asset(
         _verify_release_asset(
             gh_command,
             downloaded,
+            workspace=workspace,
             repository=repository,
             release=release,
             expected_sha256=expected_sha256,
@@ -695,6 +716,7 @@ def _verify_release_asset(
     gh_command: Path,
     path: Path,
     *,
+    workspace: Path,
     repository: str,
     release: Release,
     expected_sha256: str,
@@ -711,6 +733,7 @@ def _verify_release_asset(
         signer_workflow=".github/workflows/release.yml",
         runner=runner,
         transport=transport,
+        workspace=workspace,
     )
 
 

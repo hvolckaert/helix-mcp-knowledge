@@ -43,6 +43,22 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $gh = $null
+$ghVersion = '2.100.0'
+$trustedGitHubHosts = @(
+    'api.github.com',
+    'github.com',
+    'objects.githubusercontent.com',
+    'release-assets.githubusercontent.com'
+)
+$githubEnvironmentKeys = @(
+    'GH_ENTERPRISE_TOKEN',
+    'GH_HOST',
+    'GH_REPO',
+    'GH_TOKEN',
+    'GITHUB_ENTERPRISE_TOKEN',
+    'GITHUB_REPOSITORY',
+    'GITHUB_TOKEN'
+)
 
 function Resolve-NativeCommand {
     param(
@@ -103,37 +119,324 @@ function Invoke-PublicGitHubJson {
         [string]$Uri
     )
 
-    $headers = @{
-        Accept = 'application/vnd.github+json'
-        'X-GitHub-Api-Version' = '2022-11-28'
-        'User-Agent' = 'helix-mcp-knowledge-installer'
+    $temporary = Join-Path ([IO.Path]::GetTempPath()) ".github-json-$([Guid]::NewGuid())"
+    try {
+        Save-TrustedGitHubAsset -Uri $Uri -Destination $temporary -MaxBytes 16MB `
+            -Accept 'application/vnd.github+json'
+        return Get-Content -LiteralPath $temporary -Raw | ConvertFrom-Json
     }
-    return Invoke-RestMethod -Uri $Uri -Headers $headers -Method Get -TimeoutSec 300
+    finally {
+        Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+    }
 }
 
-function Save-PublicGitHubAsset {
+function Assert-TrustedGitHubUri {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Uri]$Uri
+    )
+
+    if (-not $Uri.IsAbsoluteUri -or $Uri.Scheme -ne 'https' -or `
+        $trustedGitHubHosts -notcontains $Uri.DnsSafeHost.ToLowerInvariant()) {
+        throw "GitHub request left trusted GitHub hosts: $Uri"
+    }
+}
+
+function Save-TrustedGitHubAsset {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Uri,
 
         [Parameter(Mandatory = $true)]
-        [string]$Destination
+        [string]$Destination,
+
+        [long]$MaxBytes = 256MB,
+
+        [string]$Accept = 'application/octet-stream'
     )
 
-    $headers = @{'User-Agent' = 'helix-mcp-knowledge-installer'}
+    Add-Type -AssemblyName System.Net.Http
+    $currentUri = [Uri]$Uri
+    Assert-TrustedGitHubUri -Uri $currentUri
     $temporary = Join-Path (Split-Path -Parent $Destination) ".download-$([Guid]::NewGuid())"
+    $handler = [Net.Http.HttpClientHandler]::new()
+    $handler.AllowAutoRedirect = $false
+    $client = [Net.Http.HttpClient]::new($handler)
+    $client.Timeout = [TimeSpan]::FromSeconds(300)
     try {
-        Invoke-WebRequest -Uri $Uri -Headers $headers -Method Get -TimeoutSec 300 `
-            -OutFile $temporary -UseBasicParsing
-        $item = Get-Item -LiteralPath $temporary -Force
-        if ($item.Length -gt 256MB) {
-            throw "Release asset is too large: $Destination"
+        for ($redirects = 0; $redirects -lt 10; $redirects++) {
+            $request = [Net.Http.HttpRequestMessage]::new(
+                [Net.Http.HttpMethod]::Get,
+                $currentUri
+            )
+            $request.Headers.UserAgent.ParseAdd('helix-mcp-knowledge-installer')
+            $request.Headers.Accept.ParseAdd($Accept)
+            $response = $client.SendAsync(
+                $request,
+                [Net.Http.HttpCompletionOption]::ResponseHeadersRead
+            ).GetAwaiter().GetResult()
+            try {
+                $statusCode = [int]$response.StatusCode
+                if ($statusCode -ge 300 -and $statusCode -lt 400) {
+                    $location = $response.Headers.Location
+                    if (-not $location) {
+                        throw 'GitHub returned an invalid redirect'
+                    }
+                    if (-not $location.IsAbsoluteUri) {
+                        $location = [Uri]::new($currentUri, $location)
+                    }
+                    Assert-TrustedGitHubUri -Uri $location
+                    $currentUri = $location
+                    continue
+                }
+                $response.EnsureSuccessStatusCode()
+                $contentLength = $response.Content.Headers.ContentLength
+                if ($null -ne $contentLength -and [long]$contentLength -gt $MaxBytes) {
+                    throw "GitHub asset is too large: $Destination"
+                }
+                $inputStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+                $outputStream = [IO.File]::Open(
+                    $temporary,
+                    [IO.FileMode]::CreateNew,
+                    [IO.FileAccess]::Write,
+                    [IO.FileShare]::None
+                )
+                try {
+                    $buffer = New-Object byte[] (1024 * 1024)
+                    $written = 0L
+                    while (($count = $inputStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                        $written += $count
+                        if ($written -gt $MaxBytes) {
+                            throw "GitHub asset is too large: $Destination"
+                        }
+                        $outputStream.Write($buffer, 0, $count)
+                    }
+                }
+                finally {
+                    $outputStream.Dispose()
+                    $inputStream.Dispose()
+                }
+                Move-Item -LiteralPath $temporary -Destination $Destination -Force
+                return
+            }
+            finally {
+                $response.Dispose()
+                $request.Dispose()
+            }
         }
-        Move-Item -LiteralPath $temporary -Destination $Destination -Force
+        throw 'GitHub request has too many redirects'
     }
     finally {
+        $client.Dispose()
+        $handler.Dispose()
         Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
     }
+}
+
+function Invoke-ManagedGitHubCli {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$GhCommand,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigDirectory,
+
+        [string[]]$ArgumentList = @(),
+
+        [switch]$Capture
+    )
+
+    $previous = @{}
+    foreach ($key in $githubEnvironmentKeys) {
+        $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
+    }
+    $previous['GH_CONFIG_DIR'] = [Environment]::GetEnvironmentVariable(
+        'GH_CONFIG_DIR', 'Process'
+    )
+    $previous['GH_NO_UPDATE_NOTIFIER'] = [Environment]::GetEnvironmentVariable(
+        'GH_NO_UPDATE_NOTIFIER', 'Process'
+    )
+    $previous['GH_PROMPT_DISABLED'] = [Environment]::GetEnvironmentVariable(
+        'GH_PROMPT_DISABLED', 'Process'
+    )
+    try {
+        foreach ($key in $githubEnvironmentKeys) {
+            [Environment]::SetEnvironmentVariable($key, $null, 'Process')
+        }
+        [Environment]::SetEnvironmentVariable('GH_CONFIG_DIR', $ConfigDirectory, 'Process')
+        [Environment]::SetEnvironmentVariable('GH_NO_UPDATE_NOTIFIER', '1', 'Process')
+        [Environment]::SetEnvironmentVariable('GH_PROMPT_DISABLED', '1', 'Process')
+        if ($Capture) {
+            return Invoke-NativeCapture -FilePath $GhCommand -ArgumentList $ArgumentList
+        }
+        Invoke-NativeCommand -FilePath $GhCommand -ArgumentList $ArgumentList
+    }
+    finally {
+        foreach ($key in $previous.Keys) {
+            [Environment]::SetEnvironmentVariable($key, $previous[$key], 'Process')
+        }
+    }
+}
+
+function Install-ManagedGitHubCli {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Version
+    )
+
+    $osArchitecture = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+    if ($osArchitecture -ne 'X64') {
+        throw "Managed GitHub CLI is unavailable for Windows $osArchitecture"
+    }
+    $archiveName = "gh_${Version}_windows_amd64.zip"
+    $archiveSha256 = '227e35230b25db3fa1b997bab7cf4d67df0470a3b75b99e4ee66bce1a7cd4e72'
+    $binaryMember = 'bin/gh.exe'
+    $binarySha256 = '2ae2b350c227a618f2d8965b1900aeee13446ff42e17ef0bd5a0b6405c593cfb'
+    $versionRoot = Join-Path $Root "tools\github-cli\$Version"
+    $binDirectory = Join-Path $versionRoot 'bin'
+    $configDirectory = Join-Path $Root 'tools\github-cli\config'
+    $command = Join-Path $binDirectory 'gh.exe'
+    foreach ($directory in @(
+        $Root,
+        (Join-Path $Root 'tools'),
+        (Join-Path $Root 'tools\github-cli'),
+        $versionRoot,
+        $binDirectory,
+        $configDirectory
+    )) {
+        if (Test-Path -LiteralPath $directory) {
+            $item = Get-Item -LiteralPath $directory -Force
+            if (-not $item.PSIsContainer -or `
+                $item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw "Managed GitHub CLI directory is not safe: $directory"
+            }
+        }
+        else {
+            New-Item -ItemType Directory -Path $directory | Out-Null
+        }
+    }
+    if (Test-Path -LiteralPath $command) {
+        $commandItem = Get-Item -LiteralPath $command -Force
+        if ($commandItem.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw 'Managed GitHub CLI cannot be a link'
+        }
+    }
+    $installBinary = -not (Test-Path -LiteralPath $command -PathType Leaf)
+    if (-not $installBinary) {
+        $installedHash = (Get-FileHash -LiteralPath $command -Algorithm SHA256).Hash
+        $installBinary = $installedHash.ToLowerInvariant() -ne $binarySha256
+    }
+    if ($installBinary) {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = Join-Path $versionRoot ".download-$([Guid]::NewGuid()).zip"
+        $temporaryBinary = Join-Path $versionRoot ".gh-$([Guid]::NewGuid()).exe"
+        try {
+            Save-TrustedGitHubAsset `
+                -Uri "https://github.com/cli/cli/releases/download/v$Version/$archiveName" `
+                -Destination $archive -MaxBytes 64MB
+            $actualArchiveHash = (
+                Get-FileHash -LiteralPath $archive -Algorithm SHA256
+            ).Hash.ToLowerInvariant()
+            if ($actualArchiveHash -ne $archiveSha256) {
+                throw 'GitHub CLI archive digest mismatch'
+            }
+            $bundle = [IO.Compression.ZipFile]::OpenRead($archive)
+            try {
+                $entries = @($bundle.Entries | Where-Object { $_.FullName -eq $binaryMember })
+                if ($entries.Count -ne 1) {
+                    throw 'GitHub CLI archive has an invalid executable'
+                }
+                $unixType = ($entries[0].ExternalAttributes -shr 16) -band 0xF000
+                if ($entries[0].Length -gt 64MB -or `
+                    $unixType -eq 0xA000) {
+                    throw 'GitHub CLI archive has an invalid executable'
+                }
+                $inputStream = $entries[0].Open()
+                $outputStream = [IO.File]::Open(
+                    $temporaryBinary,
+                    [IO.FileMode]::CreateNew,
+                    [IO.FileAccess]::Write,
+                    [IO.FileShare]::None
+                )
+                try {
+                    $buffer = New-Object byte[] (1024 * 1024)
+                    $written = 0L
+                    while (($count = $inputStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                        $written += $count
+                        if ($written -gt 64MB) {
+                            throw 'GitHub CLI executable exceeds the size limit'
+                        }
+                        $outputStream.Write($buffer, 0, $count)
+                    }
+                }
+                finally {
+                    $outputStream.Dispose()
+                    $inputStream.Dispose()
+                }
+            }
+            finally {
+                $bundle.Dispose()
+            }
+            $actualBinaryHash = (
+                Get-FileHash -LiteralPath $temporaryBinary -Algorithm SHA256
+            ).Hash.ToLowerInvariant()
+            if ($actualBinaryHash -ne $binarySha256) {
+                throw 'GitHub CLI binary digest mismatch'
+            }
+            $versionOutput = Invoke-ManagedGitHubCli -GhCommand $temporaryBinary `
+                -ConfigDirectory $configDirectory -ArgumentList @('--version') -Capture
+            if ($versionOutput -notmatch "^gh version $([Regex]::Escape($Version))") {
+                throw 'Managed GitHub CLI version is invalid'
+            }
+            Invoke-ManagedGitHubCli -GhCommand $temporaryBinary `
+                -ConfigDirectory $configDirectory `
+                -ArgumentList @('attestation', 'verify', '--help')
+            if (Test-Path -LiteralPath $command) {
+                [IO.File]::Replace($temporaryBinary, $command, $null)
+            }
+            else {
+                [IO.File]::Move($temporaryBinary, $command)
+            }
+        }
+        finally {
+            Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $temporaryBinary -Force -ErrorAction SilentlyContinue
+        }
+    }
+    $versionOutput = Invoke-ManagedGitHubCli -GhCommand $command `
+        -ConfigDirectory $configDirectory -ArgumentList @('--version') -Capture
+    if ($versionOutput -notmatch "^gh version $([Regex]::Escape($Version))") {
+        throw 'Managed GitHub CLI version is invalid'
+    }
+    Invoke-ManagedGitHubCli -GhCommand $command -ConfigDirectory $configDirectory `
+        -ArgumentList @('attestation', 'verify', '--help')
+    $metadata = @{
+        schema_version = 1
+        version = $Version
+        command = $command
+        platform = 'windows'
+        architecture = 'amd64'
+        source_url = "https://github.com/cli/cli/releases/download/v$Version/$archiveName"
+        archive_sha256 = $archiveSha256
+        binary_sha256 = $binarySha256
+    } | ConvertTo-Json
+    $metadataPath = Join-Path $versionRoot 'installation.json'
+    $metadataTemporary = Join-Path $versionRoot ".metadata-$([Guid]::NewGuid()).json"
+    try {
+        [IO.File]::WriteAllText(
+            $metadataTemporary,
+            $metadata + "`n",
+            (New-Object Text.UTF8Encoding($false))
+        )
+        Move-Item -LiteralPath $metadataTemporary -Destination $metadataPath -Force
+    }
+    finally {
+        Remove-Item -LiteralPath $metadataTemporary -Force -ErrorAction SilentlyContinue
+    }
+    return $command
 }
 
 function Invoke-PublicAttestationVerification {
@@ -164,28 +467,24 @@ function Invoke-PublicAttestationVerification {
         throw "Release asset has no verifiable provenance: $Artifact"
     }
     $bundlePath = Join-Path (Split-Path -Parent $Artifact) ".attestations-$([Guid]::NewGuid()).jsonl"
-    $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
-    $previousGithubToken = [Environment]::GetEnvironmentVariable('GITHUB_TOKEN', 'Process')
     try {
         [IO.File]::WriteAllLines(
             $bundlePath,
             $bundles,
             (New-Object Text.UTF8Encoding($false))
         )
-        [Environment]::SetEnvironmentVariable('GH_TOKEN', $null, 'Process')
-        [Environment]::SetEnvironmentVariable('GITHUB_TOKEN', $null, 'Process')
-        Invoke-NativeCommand -FilePath $GhCommand -ArgumentList @(
+        Invoke-ManagedGitHubCli -GhCommand $GhCommand `
+            -ConfigDirectory (Join-Path $resolvedRoot 'tools\github-cli\config') `
+            -ArgumentList @(
             'attestation', 'verify', $Artifact,
             '--repo', $Repository,
             '--bundle', $bundlePath,
             '--signer-workflow', "$Repository/.github/workflows/release.yml",
             '--source-ref', "refs/tags/$ReleaseTag",
             '--deny-self-hosted-runners'
-        )
+            )
     }
     finally {
-        [Environment]::SetEnvironmentVariable('GH_TOKEN', $previousGhToken, 'Process')
-        [Environment]::SetEnvironmentVariable('GITHUB_TOKEN', $previousGithubToken, 'Process')
         Remove-Item -LiteralPath $bundlePath -Force -ErrorAction SilentlyContinue
     }
 }
@@ -237,6 +536,7 @@ $venvPython = Join-Path $venv 'Scripts\python.exe'
 $cli = Join-Path $venv 'Scripts\helix-mcp-knowledge.exe'
 $server = Join-Path $venv 'Scripts\helix-mcp-knowledge-server.exe'
 $config = Join-Path $resolvedRoot 'config\config.yaml'
+$gh = Install-ManagedGitHubCli -Root $resolvedRoot -Version $ghVersion
 
 if ($WheelPath) {
     $wheel = (Resolve-Path -LiteralPath $WheelPath -ErrorAction Stop).ProviderPath
@@ -260,7 +560,6 @@ else {
     if ($RequirementsPath) {
         throw '-RequirementsPath can only be used together with -WheelPath'
     }
-    $gh = Resolve-NativeCommand -Command 'gh.exe' -Label 'GitHub CLI'
     $download = Join-Path $resolvedRoot "downloads\$Version"
     New-Item -ItemType Directory -Force -Path $download | Out-Null
     $assetName = "helix_mcp_knowledge-$Version-py3-none-any.whl"
@@ -273,11 +572,11 @@ else {
     if ($release.draft -or $release.prerelease -or $release.tag_name -ne $releaseTag) {
         throw 'GitHub returned an invalid or non-stable release'
     }
-    Save-PublicGitHubAsset `
+    Save-TrustedGitHubAsset `
         -Uri "https://github.com/$Repository/releases/download/$releaseTag/$assetName" `
         -Destination (Join-Path $download $assetName)
     $wheel = Join-Path $download $assetName
-    Save-PublicGitHubAsset `
+    Save-TrustedGitHubAsset `
         -Uri "https://github.com/$Repository/releases/download/$releaseTag/$requirementsName" `
         -Destination (Join-Path $download $requirementsName)
     $requirements = Join-Path $download $requirementsName
@@ -362,9 +661,6 @@ else {
     $installArguments = @('install', '--workspace', $resolvedRoot)
 }
 $installArguments += @('--dashboard-port', $DashboardPort.ToString())
-if ($gh) {
-    $installArguments += @('--gh-command', $gh)
-}
 foreach ($selection in $Product) {
     $installArguments += @('--product', $selection)
 }

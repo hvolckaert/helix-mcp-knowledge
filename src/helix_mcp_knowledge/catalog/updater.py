@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from ..config import AppConfig
+from ..github_cli import ensure_managed_github_cli
 from ..github_public import (
     GITHUB_API_ROOT,
     GITHUB_RELEASE_ROOT,
@@ -75,6 +76,7 @@ class CatalogUpdateChecker:
         owner_id: str | None = None,
         startup_delay_seconds: float = STARTUP_DELAY_SECONDS,
         on_updated: Callable[[], None] | None = None,
+        gh_command: str | Path | None = None,
     ) -> None:
         self.config = config
         self.settings = config.catalog_updates
@@ -85,6 +87,7 @@ class CatalogUpdateChecker:
         self.owner_id = owner_id or f"catalog_check_{uuid.uuid4()}"
         self.startup_delay_seconds = max(0.0, startup_delay_seconds)
         self.on_updated = on_updated
+        self.gh_command = gh_command
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._mutex = threading.Lock()
@@ -264,6 +267,7 @@ class CatalogUpdateChecker:
                     source_ref="refs/heads/main",
                     runner=self.runner,
                     transport=self.transport,
+                    workspace=self.config.base_dir,
                 )
             manifest_path = destination / self.settings.manifest_asset
             checksum_path = destination / self.settings.checksum_asset
@@ -319,10 +323,12 @@ class CatalogUpdateChecker:
         return sha256
 
     def _resolve_gh_command(self) -> Path:
-        configured = self.settings.gh_command
-        if configured == "gh" and self.config.updates.gh_command != "gh":
-            configured = self.config.updates.gh_command
-        return _resolve_command(configured, label="GitHub CLI")
+        if self.gh_command is not None:
+            return _resolve_command(self.gh_command, label="GitHub CLI")
+        return ensure_managed_github_cli(
+            self.config.base_dir,
+            runner=self.runner,
+        ).command
 
     def _atomic_write_cache(self, manifest: OfficialSourceManifest) -> None:
         destination = self.config.official_catalog_cache_path

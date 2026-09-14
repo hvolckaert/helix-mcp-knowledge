@@ -23,6 +23,7 @@ from ..evaluation import (
     load_evaluation_dataset,
     render_evaluation_markdown,
 )
+from ..github_cli import ManagedGitHubCli, ensure_managed_github_cli
 from ..logging import configure_logging
 from ..managed_installation import (
     ManagedInstallation,
@@ -87,7 +88,7 @@ def build_parser() -> argparse.ArgumentParser:
     openclaw.add_argument(
         "--gh-command",
         default=None,
-        help="GitHub CLI command used by background runtime and catalog checks",
+        help=argparse.SUPPRESS,
     )
     openclaw.add_argument("--server-command", default=None)
     openclaw.add_argument("--dashboard-port", type=int, default=DEFAULT_DASHBOARD_PORT)
@@ -125,7 +126,7 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument(
         "--gh-command",
         default=None,
-        help="GitHub CLI command used by background runtime and catalog checks",
+        help=argparse.SUPPRESS,
     )
     install.add_argument("--dashboard-port", type=int, default=DEFAULT_DASHBOARD_PORT)
     install.add_argument(
@@ -144,7 +145,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     update.add_argument("--server-name", default=DEFAULT_SERVER_NAME)
     update.add_argument("--openclaw-command", default="openclaw")
-    update.add_argument("--gh-command", default="gh")
+    update.add_argument("--gh-command", default=None, help=argparse.SUPPRESS)
     update.add_argument("--dry-run", action="store_true")
     update.add_argument(
         "--resume",
@@ -525,7 +526,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _install_openclaw(args: argparse.Namespace) -> int:
-    workspace, config_path, initialized = _prepare_installation(args)
+    workspace, config_path, initialized, github_cli = _prepare_installation(args)
     server_command = _installed_server_command(args.server_command)
     previous_managed = load_managed_installation(workspace)
     standalone = activate_managed_installation(
@@ -578,6 +579,7 @@ def _install_openclaw(args: argparse.Namespace) -> int:
     payload["managed_installation"] = managed.to_dict()
     payload["workspace_initialized"] = initialized
     payload["official_docs"] = application.config.official_docs.model_dump(mode="json")
+    payload["github_cli"] = github_cli.to_dict()
     dashboard_runtime = DashboardRuntimeManager(
         managed,
         server_name=args.server_name,
@@ -596,7 +598,7 @@ def _install_openclaw(args: argparse.Namespace) -> int:
 
 
 def _install_standalone(args: argparse.Namespace) -> int:
-    workspace, config_path, initialized = _prepare_installation(args)
+    workspace, config_path, initialized, github_cli = _prepare_installation(args)
     application = KnowledgeApplication.from_config(config_path)
     managed = activate_managed_installation(
         workspace=workspace,
@@ -617,6 +619,7 @@ def _install_standalone(args: argparse.Namespace) -> int:
             "command": str(managed.launcher),
             "cwd": str(workspace),
         },
+        "github_cli": github_cli.to_dict(),
     }
     dashboard_runtime = DashboardRuntimeManager(
         managed,
@@ -648,7 +651,9 @@ def _dashboard_browser_result(
     return {"pid": process_id, "url": url}
 
 
-def _prepare_installation(args: argparse.Namespace) -> tuple[Path, Path, bool]:
+def _prepare_installation(
+    args: argparse.Namespace,
+) -> tuple[Path, Path, bool, ManagedGitHubCli]:
     if args.workspace and args.config:
         raise KnowledgeError("use either --config or --workspace for installation")
     if args.workspace:
@@ -666,8 +671,10 @@ def _prepare_installation(args: argparse.Namespace) -> tuple[Path, Path, bool]:
         initialization = initialize_workspace(workspace)
         config_path = initialization.config
         initialized = True
-    if args.gh_command:
-        configure_github_cli(config_path, args.gh_command)
+    # Older installers may still pass a system --gh-command. Accept the option
+    # for compatibility, but migrate the workspace to the pinned managed tool.
+    github_cli = ensure_managed_github_cli(workspace)
+    configure_github_cli(config_path, github_cli.command)
     if args.product is not None or args.automatic_sync is not None:
         product_specs = args.product
         if product_specs is None:
@@ -686,7 +693,7 @@ def _prepare_installation(args: argparse.Namespace) -> tuple[Path, Path, bool]:
             interval_hours=None,
             retain_unselected_versions=None,
         )
-    return workspace, config_path, initialized
+    return workspace, config_path, initialized, github_cli
 
 
 def _installed_server_command(value: str | None) -> Path:

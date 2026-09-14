@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import tempfile
 from collections.abc import Callable
@@ -13,6 +12,7 @@ from typing import Protocol
 import httpx
 
 from .errors import KnowledgeError
+from .github_cli import github_cli_environment
 from .openclaw import _run
 
 GITHUB_API_ROOT = "https://api.github.com"
@@ -22,10 +22,16 @@ GITHUB_API_HEADERS = {
     "X-GitHub-Api-Version": "2022-11-28",
     "User-Agent": "helix-mcp-knowledge",
 }
+TRUSTED_GITHUB_HOSTS = frozenset(
+    {
+        "api.github.com",
+        "github.com",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+    }
+)
 MAX_GITHUB_JSON_BYTES = 16 * 1024 * 1024
 MAX_RELEASE_ASSET_BYTES = 256 * 1024 * 1024
-_GITHUB_TOKEN_ENVIRONMENT_VARIABLES = frozenset({"GH_TOKEN", "GITHUB_TOKEN"})
-
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 
 
@@ -54,15 +60,22 @@ class PublicGitHubTransport:
         try:
             with httpx.Client(
                 headers=GITHUB_API_HEADERS,
-                follow_redirects=True,
+                follow_redirects=False,
                 timeout=timeout,
                 transport=self._transport,
             ) as client:
-                response = client.get(url)
-                response.raise_for_status()
-                if len(response.content) > MAX_GITHUB_JSON_BYTES:
-                    raise KnowledgeError(f"{action} returned too much data")
-                return response.json()
+                current_url = httpx.URL(url)
+                for _ in range(10):
+                    _validate_github_url(current_url, action=action)
+                    response = client.get(current_url)
+                    if response.is_redirect:
+                        current_url = _redirect_url(response, current_url, action=action)
+                        continue
+                    response.raise_for_status()
+                    if len(response.content) > MAX_GITHUB_JSON_BYTES:
+                        raise KnowledgeError(f"{action} returned too much data")
+                    return response.json()
+                raise KnowledgeError(f"{action} returned too many redirects")
         except KnowledgeError:
             raise
         except (httpx.HTTPError, ValueError):
@@ -77,32 +90,55 @@ class PublicGitHubTransport:
         action: str,
     ) -> None:
         try:
-            with (
-                httpx.Client(
-                    headers=GITHUB_API_HEADERS,
-                    follow_redirects=True,
-                    timeout=timeout,
-                    transport=self._transport,
-                ) as client,
-                client.stream("GET", url) as response,
-            ):
-                response.raise_for_status()
-                content_length = response.headers.get("Content-Length")
-                if content_length is not None and int(content_length) > MAX_RELEASE_ASSET_BYTES:
-                    raise KnowledgeError(f"{action} returned too much data")
-                written = 0
-                with destination.open("xb") as stream:
-                    for block in response.iter_bytes():
-                        written += len(block)
-                        if written > MAX_RELEASE_ASSET_BYTES:
+            with httpx.Client(
+                headers=GITHUB_API_HEADERS,
+                follow_redirects=False,
+                timeout=timeout,
+                transport=self._transport,
+            ) as client:
+                current_url = httpx.URL(url)
+                for _ in range(10):
+                    _validate_github_url(current_url, action=action)
+                    with client.stream("GET", current_url) as response:
+                        if response.is_redirect:
+                            current_url = _redirect_url(response, current_url, action=action)
+                            continue
+                        response.raise_for_status()
+                        content_length = response.headers.get("Content-Length")
+                        if (
+                            content_length is not None
+                            and int(content_length) > MAX_RELEASE_ASSET_BYTES
+                        ):
                             raise KnowledgeError(f"{action} returned too much data")
-                        stream.write(block)
+                        written = 0
+                        with destination.open("xb") as stream:
+                            for block in response.iter_bytes():
+                                written += len(block)
+                                if written > MAX_RELEASE_ASSET_BYTES:
+                                    raise KnowledgeError(f"{action} returned too much data")
+                                stream.write(block)
+                        return
+                raise KnowledgeError(f"{action} returned too many redirects")
         except KnowledgeError:
             destination.unlink(missing_ok=True)
             raise
         except (httpx.HTTPError, OSError, ValueError):
             destination.unlink(missing_ok=True)
             raise KnowledgeError(f"{action} could not be completed") from None
+
+
+def _validate_github_url(url: httpx.URL, *, action: str) -> None:
+    if url.scheme != "https" or (url.host or "").casefold() not in TRUSTED_GITHUB_HOSTS:
+        raise KnowledgeError(f"{action} left trusted GitHub hosts")
+
+
+def _redirect_url(response: httpx.Response, current: httpx.URL, *, action: str) -> httpx.URL:
+    location = response.headers.get("Location")
+    if not location:
+        raise KnowledgeError(f"{action} returned an invalid redirect")
+    redirected = current.join(location)
+    _validate_github_url(redirected, action=action)
+    return redirected
 
 
 def verify_public_attestation(
@@ -115,6 +151,7 @@ def verify_public_attestation(
     signer_workflow: str,
     runner: CommandRunner,
     transport: ReleaseTransport,
+    workspace: str | Path,
     source_ref: str | None = None,
 ) -> None:
     """Fetch public bundles anonymously and verify them locally with ``gh``."""
@@ -161,15 +198,5 @@ def verify_public_attestation(
             runner=runner,
             timeout=120,
             action="release provenance verification",
-            env=github_cli_environment(),
+            env=github_cli_environment(workspace),
         )
-
-
-def github_cli_environment() -> dict[str, str]:
-    """Return the process environment without GitHub authentication tokens."""
-
-    return {
-        key: value
-        for key, value in os.environ.items()
-        if key.upper() not in _GITHUB_TOKEN_ENVIRONMENT_VARIABLES
-    }

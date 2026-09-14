@@ -88,6 +88,7 @@ def test_installs_no_admin_systemd_user_service(tmp_path: Path, monkeypatch) -> 
     assert "dashboard-supervisor.log" in unit
     assert str(installation.dashboard_launcher) in unit
     assert '"8765"' in unit
+    assert "--gh-command" not in unit
     assert ["systemctl", "--user", "enable", "--now", DASHBOARD_SERVICE_NAME] in calls
 
 

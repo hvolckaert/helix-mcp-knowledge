@@ -7,7 +7,7 @@ REPOSITORY="hvolckaert/helix-mcp-knowledge"
 INSTALL_ROOT="${XDG_DATA_HOME:-${HOME:?HOME is not defined}/.local/share}/helix-mcp-knowledge"
 WHEEL_PATH=""
 REQUIREMENTS_PATH=""
-GH=""
+GH_VERSION="2.100.0"
 PYTHON_COMMAND="python3"
 OPENCLAW_COMMAND="openclaw"
 CLIENT="auto"
@@ -198,6 +198,240 @@ VENV_PYTHON="$VENV/bin/python"
 CLI="$VENV/bin/helix-mcp-knowledge"
 SERVER="$VENV/bin/helix-mcp-knowledge-server"
 CONFIG="$ROOT/config/config.yaml"
+GH_CONFIG_DIR="$ROOT/tools/github-cli/config"
+
+GH="$($PYTHON - "$ROOT" "$GH_VERSION" <<'PY'
+import hashlib
+import json
+import os
+import pathlib
+import platform
+import stat
+import subprocess
+import sys
+import tarfile
+import tempfile
+import urllib.parse
+import urllib.request
+
+root = pathlib.Path(sys.argv[1]).absolute()
+version = sys.argv[2]
+architecture = {
+    "amd64": "amd64",
+    "x86_64": "amd64",
+    "aarch64": "arm64",
+    "arm64": "arm64",
+}.get(platform.machine().lower())
+assets = {
+    "amd64": {
+        "archive": f"gh_{version}_linux_amd64.tar.gz",
+        "archive_sha256": "e4d4bb4498e8d007abe545b6568926793ace1b6447da598294a610018cb164be",
+        "member": f"gh_{version}_linux_amd64/bin/gh",
+        "binary_sha256": "553949e2efa12842771efe6012aa4de21f1d591530ec17fc435f610f10e017ee",
+    },
+    "arm64": {
+        "archive": f"gh_{version}_linux_arm64.tar.gz",
+        "archive_sha256": "ea4e7a581a32ccad6cc7923cb1576ac5859ba4b9a16ab22eb8f8a96e78e2e961",
+        "member": f"gh_{version}_linux_arm64/bin/gh",
+        "binary_sha256": "28a037b967065aa314cb6d539943b55d27ef2f97c523ab2b6023ccf284e1828d",
+    },
+}
+if architecture not in assets:
+    raise SystemExit("managed GitHub CLI is unavailable for this Linux architecture")
+asset = assets[architecture]
+version_root = root / "tools" / "github-cli" / version
+command = version_root / "bin" / "gh"
+config_dir = root / "tools" / "github-cli" / "config"
+trusted_hosts = {
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+}
+max_bytes = 64 * 1024 * 1024
+
+
+def ensure_private_directory(path: pathlib.Path) -> None:
+    if path.exists() and (path.is_symlink() or not path.is_dir()):
+        raise SystemExit(f"managed GitHub CLI directory is not safe: {path}")
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.chmod(0o700)
+
+
+def sha256(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def validate_url(url: str) -> None:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https" or (parsed.hostname or "").lower() not in trusted_hosts:
+        raise SystemExit("GitHub CLI download left trusted GitHub hosts")
+
+
+class TrustedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        validate_url(new_url)
+        return super().redirect_request(
+            request, file_pointer, code, message, headers, new_url
+        )
+
+
+def download(url: str, destination: pathlib.Path) -> None:
+    validate_url(url)
+    opener = urllib.request.build_opener(TrustedRedirectHandler())
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/octet-stream",
+            "User-Agent": "helix-mcp-knowledge-installer",
+        },
+    )
+    with opener.open(request, timeout=300) as response, destination.open("xb") as output:
+        content_length = response.headers.get("Content-Length")
+        if content_length is not None and int(content_length) > max_bytes:
+            raise SystemExit("GitHub CLI archive exceeds the size limit")
+        size = 0
+        while block := response.read(1024 * 1024):
+            size += len(block)
+            if size > max_bytes:
+                raise SystemExit("GitHub CLI archive exceeds the size limit")
+            output.write(block)
+
+
+def validate_command(path: pathlib.Path) -> None:
+    environment = os.environ.copy()
+    for key in (
+        "GH_ENTERPRISE_TOKEN",
+        "GH_HOST",
+        "GH_REPO",
+        "GH_TOKEN",
+        "GITHUB_ENTERPRISE_TOKEN",
+        "GITHUB_REPOSITORY",
+        "GITHUB_TOKEN",
+    ):
+        environment.pop(key, None)
+    environment.update(
+        {
+            "GH_CONFIG_DIR": str(config_dir),
+            "GH_NO_UPDATE_NOTIFIER": "1",
+            "GH_PROMPT_DISABLED": "1",
+        }
+    )
+    completed = subprocess.run(
+        [str(path), "--version"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=environment,
+    )
+    if not completed.stdout.startswith(f"gh version {version}"):
+        raise SystemExit("managed GitHub CLI version is invalid")
+    subprocess.run(
+        [str(path), "attestation", "verify", "--help"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=environment,
+    )
+
+
+for directory in (
+    root,
+    root / "tools",
+    root / "tools" / "github-cli",
+    version_root,
+    command.parent,
+    config_dir,
+):
+    ensure_private_directory(directory)
+
+if command.is_symlink():
+    raise SystemExit("managed GitHub CLI cannot be a symbolic link")
+if not command.is_file() or sha256(command) != asset["binary_sha256"]:
+    archive_handle, archive_name = tempfile.mkstemp(
+        prefix=".download-", suffix=".tar.gz", dir=version_root
+    )
+    os.close(archive_handle)
+    archive = pathlib.Path(archive_name)
+    archive.unlink()
+    binary_handle, binary_name = tempfile.mkstemp(prefix=".gh-", dir=version_root)
+    os.close(binary_handle)
+    binary = pathlib.Path(binary_name)
+    binary.unlink()
+    try:
+        url = f"https://github.com/cli/cli/releases/download/v{version}/{asset['archive']}"
+        download(url, archive)
+        if sha256(archive) != asset["archive_sha256"]:
+            raise SystemExit("GitHub CLI archive digest mismatch")
+        with tarfile.open(archive, mode="r:gz") as bundle:
+            members = [item for item in bundle.getmembers() if item.name == asset["member"]]
+            if (
+                len(members) != 1
+                or not members[0].isfile()
+                or members[0].size > max_bytes
+            ):
+                raise SystemExit("GitHub CLI archive has an invalid executable")
+            source = bundle.extractfile(members[0])
+            if source is None:
+                raise SystemExit("GitHub CLI archive has an invalid executable")
+            with source, binary.open("xb") as output:
+                size = 0
+                while block := source.read(1024 * 1024):
+                    size += len(block)
+                    if size > max_bytes:
+                        raise SystemExit("GitHub CLI executable exceeds the size limit")
+                    output.write(block)
+        if sha256(binary) != asset["binary_sha256"]:
+            raise SystemExit("GitHub CLI binary digest mismatch")
+        binary.chmod(0o700)
+        validate_command(binary)
+        os.replace(binary, command)
+    finally:
+        archive.unlink(missing_ok=True)
+        binary.unlink(missing_ok=True)
+else:
+    command.chmod(0o700)
+    validate_command(command)
+
+metadata = version_root / "installation.json"
+metadata_handle, metadata_name = tempfile.mkstemp(prefix=".metadata-", dir=version_root)
+with os.fdopen(metadata_handle, "w", encoding="utf-8") as output:
+    json.dump(
+        {
+            "schema_version": 1,
+            "version": version,
+            "command": str(command),
+            "platform": "linux",
+            "architecture": architecture,
+            "source_url": (
+                f"https://github.com/cli/cli/releases/download/v{version}/{asset['archive']}"
+            ),
+            "archive_sha256": asset["archive_sha256"],
+            "binary_sha256": asset["binary_sha256"],
+        },
+        output,
+        indent=2,
+        sort_keys=True,
+    )
+    output.write("\n")
+os.chmod(metadata_name, 0o600)
+os.replace(metadata_name, metadata)
+print(command)
+PY
+)" || fail "managed GitHub CLI could not be provisioned"
+
+run_gh() {
+  env \
+    -u GH_ENTERPRISE_TOKEN -u GH_HOST -u GH_REPO -u GH_TOKEN \
+    -u GITHUB_ENTERPRISE_TOKEN -u GITHUB_REPOSITORY -u GITHUB_TOKEN \
+    GH_CONFIG_DIR="$GH_CONFIG_DIR" GH_NO_UPDATE_NOTIFIER=1 GH_PROMPT_DISABLED=1 \
+    "$GH" "$@"
+}
 
 if [[ -e "$RUNTIME" || -L "$RUNTIME" ]]; then
   [[ -d "$RUNTIME" && ! -L "$RUNTIME" ]] || fail "runtime is not a regular directory: $RUNTIME"
@@ -224,7 +458,6 @@ if [[ -n "$WHEEL_PATH" ]]; then
   printf 'Using caller-provided locked requirements (sha256:%s): %s\n' \
     "$REQUIREMENTS_HASH" "$REQUIREMENTS"
 else
-  GH="$(resolve_command "gh" "GitHub CLI")"
   DOWNLOAD="$ROOT/downloads/$VERSION"
   ASSET_NAME="helix_mcp_knowledge-$VERSION-py3-none-any.whl"
   RELEASE_TAG="v$VERSION"
@@ -240,6 +473,7 @@ import os
 import pathlib
 import sys
 import tempfile
+import urllib.parse
 import urllib.request
 
 repository, tag, download, *asset_names = sys.argv[1:]
@@ -249,10 +483,34 @@ headers = {
     "X-GitHub-Api-Version": "2022-11-28",
     "User-Agent": "helix-mcp-knowledge-installer",
 }
+trusted_hosts = {
+    "api.github.com",
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+}
+
+
+def validate_url(url: str) -> None:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https" or (parsed.hostname or "").lower() not in trusted_hosts:
+        raise SystemExit("GitHub release request left trusted GitHub hosts")
+
+
+class TrustedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        validate_url(new_url)
+        return super().redirect_request(
+            request, file_pointer, code, message, headers, new_url
+        )
+
+
+opener = urllib.request.build_opener(TrustedRedirectHandler())
 
 
 def request(url: str):
-    return urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=300)
+    validate_url(url)
+    return opener.open(urllib.request.Request(url, headers=headers), timeout=300)
 
 
 with request(f"https://api.github.com/repos/{repository}/releases/tags/{tag}") as response:
@@ -315,7 +573,7 @@ PY
   REQUIREMENTS_HASH="$(sha256sum -- "$REQUIREMENTS" | awk '{print $1}')"
   for asset in "$WHEEL" "$REQUIREMENTS"; do
     bundle="$DOWNLOAD/.$(basename -- "$asset").attestations.jsonl"
-    env -u GH_TOKEN -u GITHUB_TOKEN "$GH" attestation verify "$asset" \
+    run_gh attestation verify "$asset" \
       --repo "$REPOSITORY" \
       --bundle "$bundle" \
       --signer-workflow "$REPOSITORY/.github/workflows/release.yml" \
@@ -354,9 +612,6 @@ else
   INSTALL_ARGUMENTS=(install --workspace "$ROOT")
 fi
 INSTALL_ARGUMENTS+=(--dashboard-port "$DASHBOARD_PORT")
-if [[ -n "$GH" ]]; then
-  INSTALL_ARGUMENTS+=(--gh-command "$GH")
-fi
 for selection in "${PRODUCTS[@]}"; do
   INSTALL_ARGUMENTS+=(--product "$selection")
 done

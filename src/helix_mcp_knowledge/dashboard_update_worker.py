@@ -55,7 +55,7 @@ class DashboardUpdateWorkerLauncher:
         target_version: str,
         server_name: str,
         openclaw_command: str | Path,
-        gh_command: str | Path,
+        gh_command: str | Path | None,
         dashboard_port: int,
         dashboard_token: str | None = None,
         python_executable: str | None = None,
@@ -67,7 +67,7 @@ class DashboardUpdateWorkerLauncher:
         self.target_version = target_version
         self.server_name = server_name
         self.openclaw_command = str(openclaw_command)
-        self.gh_command = str(gh_command)
+        self.gh_command = str(gh_command) if gh_command is not None else None
         self.dashboard_port = dashboard_port
         self.dashboard_token = dashboard_token
         self.python_executable = python_executable or sys.executable
@@ -110,11 +110,11 @@ class DashboardUpdateWorkerLauncher:
             self.server_name,
             "--openclaw-command",
             self.openclaw_command,
-            "--gh-command",
-            self.gh_command,
             "--dashboard-port",
             str(self.dashboard_port),
         ]
+        if self.gh_command is not None:
+            command.extend(["--gh-command", self.gh_command])
         if os.name != "nt" and environment.get(DASHBOARD_MODE_ENV) == "systemd_user":
             process = self._start_systemd_worker(command, log_path)
             self._started = True
@@ -233,7 +233,7 @@ def run_update(
     target_version: str,
     server_name: str,
     openclaw_command: str | Path,
-    gh_command: str | Path,
+    gh_command: str | Path | None,
     dashboard_port: int,
     dashboard_token: str | None = None,
     sync_wait_timeout_seconds: float = 6 * 3600,
@@ -543,7 +543,7 @@ def main() -> int:
     parser.add_argument("--target-version", required=True)
     parser.add_argument("--server-name", default=DEFAULT_SERVER_NAME)
     parser.add_argument("--openclaw-command", default="openclaw")
-    parser.add_argument("--gh-command", default="gh")
+    parser.add_argument("--gh-command", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--dashboard-port", type=int, required=True)
     parser.add_argument("--dashboard-token-file", type=Path)
     args = parser.parse_args()

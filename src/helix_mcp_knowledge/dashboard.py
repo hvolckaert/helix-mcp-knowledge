@@ -1347,7 +1347,7 @@ class DashboardService:
                     target_version=release.latest_version,
                     server_name=self.server_name,
                     openclaw_command=self.openclaw_command,
-                    gh_command=application.config.updates.gh_command,
+                    gh_command=None,
                     dashboard_port=dashboard_port,
                     dashboard_token=dashboard_token,
                 ).start()

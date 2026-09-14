@@ -8,6 +8,7 @@ import yaml
 
 from helix_mcp_knowledge.catalog.updater import CatalogUpdateChecker
 from helix_mcp_knowledge.config import CatalogUpdateSettings
+from helix_mcp_knowledge.github_cli import ManagedGitHubCli
 from helix_mcp_knowledge.storage.automation import AutomationStore
 from helix_mcp_knowledge.sync.manifest import OfficialSourceManifest
 
@@ -88,6 +89,10 @@ class CatalogRunner:
         if rendered[1:2] == ["release"]:
             raise AssertionError("public catalog access must not use gh")
         assert rendered[1:3] == ["attestation", "verify"]
+        environment = kwargs["env"]
+        assert environment["GH_PROMPT_DISABLED"] == "1"
+        assert "GH_TOKEN" not in environment
+        assert "GITHUB_REPOSITORY" not in environment
         return subprocess.CompletedProcess(rendered, 0, stdout="", stderr="")
 
 
@@ -100,6 +105,7 @@ def _checker(app, tmp_path: Path, runner: CatalogRunner, callback=lambda: None):
     )
     gh = tmp_path / "gh"
     gh.write_text("command", encoding="utf-8")
+    gh.chmod(0o700)
     app.config.catalog_updates = CatalogUpdateSettings(
         enabled=True,
         repository="example/public",
@@ -114,6 +120,7 @@ def _checker(app, tmp_path: Path, runner: CatalogRunner, callback=lambda: None):
         clock=lambda: 1_800_000_000.0,
         owner_id="catalog-checker",
         on_updated=callback,
+        gh_command=gh,
     )
 
 
@@ -133,19 +140,37 @@ def test_catalog_checker_downloads_verifies_and_activates_new_revision(app, tmp_
     assert len(runner.urls) == 5
 
 
-def test_catalog_checker_uses_runtime_update_command_for_legacy_configuration(
-    app, tmp_path: Path
+def test_catalog_checker_migrates_legacy_configuration_to_managed_command(
+    app, tmp_path: Path, monkeypatch
 ) -> None:
     runner = CatalogRunner(_catalog(2))
     checker = _checker(app, tmp_path, runner)
-    gh = Path(app.config.catalog_updates.gh_command)
     app.config.catalog_updates.gh_command = "gh"
-    app.config.updates.gh_command = str(gh)
+    app.config.updates.gh_command = "/usr/local/bin/gh"
+    managed = tmp_path / "tools/github-cli/2.100.0/bin/gh"
+    managed.parent.mkdir(parents=True)
+    managed.write_text("managed", encoding="utf-8")
+    managed.chmod(0o700)
+    checker.gh_command = None
+    monkeypatch.setattr(
+        "helix_mcp_knowledge.catalog.updater.ensure_managed_github_cli",
+        lambda *_args, **_kwargs: ManagedGitHubCli(
+            version="2.100.0",
+            command=managed,
+            platform="linux",
+            architecture="amd64",
+            archive_sha256="a" * 64,
+            binary_sha256="b" * 64,
+            source_url="https://github.com/cli/cli/releases/download/v2.100.0/test",
+            installed=True,
+            downloaded=False,
+        ),
+    )
 
     result = checker.check(force=True)
 
     assert result.status == "updated"
-    assert runner.calls[0][0] == str(gh)
+    assert runner.calls[0][0] == str(managed)
 
 
 def test_catalog_checker_rejects_a_checksum_mismatch(app, tmp_path: Path) -> None:
