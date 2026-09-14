@@ -36,7 +36,7 @@ If OpenClaw is installed, also run `openclaw.cmd --version` and
 Use `openclaw.cmd`, not `openclaw.ps1`, so installation is independent of the
 PowerShell script-execution policy.
 
-## 3. Clean installation of v1.31.4
+## 3. Clean installation of v1.31.5
 
 ### Recommended automated installation
 
@@ -45,15 +45,15 @@ public release endpoint, verifies its GitHub SHA-256 and signed provenance,
 creates an isolated runtime, and registers the server:
 
 ```powershell
-.\scripts\install-windows.ps1 -Version 1.31.4
+.\scripts\install-windows.ps1 -Version 1.31.5
 ```
 
 For controlled installations or tests, provide a local wheel:
 
 ```powershell
 .\scripts\install-windows.ps1 `
-  -Version 1.31.4 `
-  -WheelPath C:\Temp\helix_mcp_knowledge-1.31.4-py3-none-any.whl `
+  -Version 1.31.5 `
+  -WheelPath C:\Temp\helix_mcp_knowledge-1.31.5-py3-none-any.whl `
   -RequirementsPath C:\Temp\runtime-requirements.txt
 ```
 
@@ -74,7 +74,7 @@ an unattended installation:
 
 ```powershell
 .\scripts\install-windows.ps1 `
-  -Version 1.31.4 `
+  -Version 1.31.5 `
   -Product @('cmdb=26.3', 'discovery=current')
 ```
 
@@ -98,7 +98,7 @@ Open PowerShell as the same user that runs OpenClaw and define persistent
 paths:
 
 ```powershell
-$HelixVersion = "1.31.4"
+$HelixVersion = "1.31.5"
 $HelixHome = Join-Path $env:LOCALAPPDATA "helix-mcp-knowledge"
 $HelixRuntime = Join-Path $HelixHome "runtime\$HelixVersion"
 $HelixDownload = Join-Path $HelixHome "downloads\$HelixVersion"
@@ -187,7 +187,7 @@ change products, versions, synchronization frequency, and to create, remove, or
 configure private projects and their document folders without editing YAML:
 
 ```powershell
-& "$env:LOCALAPPDATA\helix-mcp-knowledge\runtime\1.31.4\venv\Scripts\helix-mcp-knowledge.exe" `
+& "$env:LOCALAPPDATA\helix-mcp-knowledge\runtime\1.31.5\venv\Scripts\helix-mcp-knowledge.exe" `
   --config "$env:LOCALAPPDATA\helix-mcp-knowledge\config\config.yaml" `
   dashboard
 ```
@@ -374,7 +374,7 @@ activate the latest stable release:
   --openclaw-command $OpenClawCommand
 ```
 
-Use `--version 1.31.4` to pin a release. The updater installs or reuses the
+Use `--version 1.31.5` to pin a release. The updater installs or reuses the
 private, pinned GitHub CLI in the Knowledge workspace. It obtains metadata,
 assets, and attestation bundles from anonymous public endpoints, strips GitHub
 token, host, and repository overrides, verifies SHA-256 and provenance locally,
@@ -405,7 +405,7 @@ openclaw.cmd gateway restart
 openclaw.cmd mcp probe helix_knowledge --json
 ```
 
-Versions 1.0.x do not include `update`. Install v1.31.4 once in a parallel
+Versions 1.0.x do not include `update`. Install v1.31.5 once in a parallel
 runtime while retaining the same workspace; subsequent upgrades can use the
 integrated updater.
 

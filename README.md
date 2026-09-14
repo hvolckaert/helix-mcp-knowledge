@@ -54,7 +54,7 @@ once, and verifies the result.
 
 ## Release status
 
-Version 1.31.4 provides:
+Version 1.31.5 provides:
 
 - validated YAML configuration and Pydantic domain models;
 - project registration and active-project resolution;
@@ -190,7 +190,7 @@ On first run it creates a per-user workspace containing a generic configuration,
 the supported official catalog, and the index directories.
 
 ```bash
-python -m pip install helix_mcp_knowledge-1.31.4-py3-none-any.whl
+python -m pip install helix_mcp_knowledge-1.31.5-py3-none-any.whl
 helix-mcp-knowledge install
 ```
 
@@ -256,13 +256,13 @@ public endpoints and verified locally.
 Windows:
 
 ```powershell
-.\scripts\install-windows.ps1 -Version 1.31.4
+.\scripts\install-windows.ps1 -Version 1.31.5
 ```
 
 WSL or Linux from a checkout:
 
 ```bash
-./scripts/install-linux.sh --version 1.31.4
+./scripts/install-linux.sh --version 1.31.5
 ```
 
 Both installers create a working MCP server with no products selected. Their
@@ -278,7 +278,7 @@ products for an unattended installation. Repeat the option to retain multiple
 versions:
 
 ```bash
-./scripts/install-linux.sh --version 1.31.4 \
+./scripts/install-linux.sh --version 1.31.5 \
   --product cmdb=26.3 \
   --product discovery=current
 ```
