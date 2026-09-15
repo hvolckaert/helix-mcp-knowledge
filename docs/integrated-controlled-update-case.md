@@ -4,11 +4,11 @@ This case demonstrates a governed action by one autonomous Helix specialist usin
 MCP servers:
 
 - **Helix MCP Knowledge** retrieves the applicable official documentation and the
-  authorised project runbook.
+  authorized project runbook.
 - **Helix MCP Gateway** reads one synthetic DEV record, creates an exact temporary
   update plan, waits for human approval, applies it once, and verifies the result.
 
-The scenario updates one fictional, non-sensitive assignment marker on one authorised
+The scenario updates one fictional, non-sensitive assignment marker on one authorized
 synthetic configuration item. It does not create records, delete data, attach files,
 perform a bulk change, or modify PROD.
 
@@ -16,6 +16,8 @@ The Gateway half extends its independently validated
 [controlled form-update case](https://github.com/hvolckaert/helix-mcp-gateway/blob/main/docs/use-cases/controlled-form-update.md).
 This public guide contains no copied BMC text, private form or field name, entry
 identifier, business value, credential, endpoint, or raw tool result.
+The [short case study](https://github.com/hvolckaert/helix-mcp-knowledge/blob/main/docs/agent-evidence-to-controlled-dev-update-case.md) separates
+the observed validation from this full reference procedure.
 
 ## Outcome first
 
@@ -40,7 +42,7 @@ not override Gateway policy or the BMC account's permissions.
 - Helix MCP Knowledge `1.31.0` or later.
 - Helix MCP Gateway `0.9.0` or later.
 - BMC Helix CMDB `26.1` indexed in Knowledge.
-- One explicitly selected Knowledge project with an indexed, authorised runbook for the
+- One explicitly selected Knowledge project with an indexed, authorized runbook for the
   synthetic demonstration.
 - One fictional DEV record and one initially empty, non-sensitive field.
 - Gateway policy permitting update of only the required DEV form and field.
@@ -59,7 +61,7 @@ Another MCP client may display different prefixes while exposing the same tool n
 ## Reproducible prompt
 
 ```text
-Use helix_knowledge and helix to prepare one controlled update of an authorised
+Use helix_knowledge and helix to prepare one controlled update of an authorized
 synthetic CMDB record in DEV. Do not modify any other record or environment.
 
 First use helix_knowledge. Verify that CMDB 26.1 is indexed and identify the explicit
@@ -108,7 +110,7 @@ credentials, endpoints, or unrelated values.
 
    Continue only when `26.1` reports `indexed=true`.
 
-2. Call `helix_knowledge__list_projects` and select the exact authorised project. Use
+2. Call `helix_knowledge__list_projects` and select the exact authorized project. Use
    its returned `project_id` explicitly in every project-scoped call rather than relying
    on an unrelated session's active project.
 
@@ -177,7 +179,7 @@ Retrieval mode affects ranking, not the authority of the returned source.
     ```json
     {
       "environment": "dev",
-      "form": "<private authorised form>",
+      "form": "<private authorized form>",
       "entry_id": "<selected fictional entry>",
       "values": {"<private non-sensitive field>": "<agreed fictional value>"},
       "reason": "<runbook-supported reason of at least ten characters>"
@@ -216,7 +218,7 @@ It must never cause an apply call.
 
 ## Optional PROD policy proof
 
-Only in the authorised synthetic validation setup, attempt to plan the same form update
+Only in the authorized synthetic validation setup, attempt to plan the same form update
 against `prod`. The expected result is `FORM_WRITE_FORM_NOT_ALLOWED` before a plan or
 record read exists. Never apply anything in PROD.
 
@@ -262,7 +264,7 @@ exact form-and-field policy check.
 - [ ] Official and project searches run separately and preserve their provenance.
 - [ ] Selected sections are expanded before the decision is formed.
 - [ ] Semantic search and reranking may remain disabled.
-- [ ] The target is an explicitly authorised fictional record in `dev`.
+- [ ] The target is an explicitly authorized fictional record in `dev`.
 - [ ] Only one non-sensitive field and one fictional value are proposed.
 - [ ] The bounded initial read selects exactly one record and detects a no-op.
 - [ ] Gateway policy authorizes the exact DEV form and field.

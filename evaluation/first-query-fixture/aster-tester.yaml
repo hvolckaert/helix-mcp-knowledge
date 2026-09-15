@@ -1,0 +1,23 @@
+schema_version: 1
+id: aster-tester
+name: Aster Tester (fictional)
+description: Fictional project used only for a resource-light first-query acceptance test.
+status: active
+classification: public
+
+documents:
+  path: data/sources/projects/aster-tester/docs
+  sources_manifest: config/projects/aster-tester.sources.yaml
+
+languages:
+  - en
+  - es
+
+bmc:
+  products:
+    cmdb:
+      version: "26.1"
+
+tags:
+  - synthetic
+  - acceptance

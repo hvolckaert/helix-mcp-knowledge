@@ -25,15 +25,20 @@ REQUIRED_RESOURCES = {
     "helix_mcp_knowledge/resources/requirements/semantic-component.txt",
 }
 PUBLIC_SDIST_DOCS = {
+    "docs/agent-architecture.md",
     "docs/architecture/v1-specification.md",
     "docs/catalog-maintenance.md",
     "docs/cmdb-reconciliation-demo.md",
     "docs/dashboard-ui-contract.md",
+    "docs/development.md",
+    "docs/installation.md",
     "docs/integrated-cmdb-data-quality-case.md",
     "docs/integrated-controlled-update-case.md",
     "docs/mcp-client-integration.md",
     "docs/openclaw-windows-guide.md",
     "docs/openclaw-wsl-guide.md",
+    "docs/operations.md",
+    "docs/release-status.md",
 }
 PUBLIC_SDIST_EVALUATION = {
     "evaluation/README.md",

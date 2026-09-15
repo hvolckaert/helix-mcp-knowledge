@@ -4,7 +4,7 @@ This case joins the two complementary MCP servers used by an autonomous Helix
 specialist:
 
 - **Helix MCP Knowledge** establishes what the applicable BMC documentation says.
-- **Helix MCP Gateway** inspects an explicitly authorised Helix environment through
+- **Helix MCP Gateway** inspects an explicitly authorized Helix environment through
   policy-controlled, bounded operations.
 
 The scenario investigates CMDB data-quality candidates in a synthetic DEV environment.
@@ -24,7 +24,7 @@ separate:
 | Class | Meaning | Example |
 | --- | --- | --- |
 | Documented evidence | Versioned official BMC guidance returned by Knowledge | Reconciliation consolidates conflicting representations of a CI |
-| Live observation | A bounded result returned by Gateway from the authorised target | Two rows share the same presentation-safe system name |
+| Live observation | A bounded result returned by Gateway from the authorized target | Two rows share the same presentation-safe system name |
 | Agent inference | A cautious interpretation that is not yet proven | The two rows may be duplicate-CI candidates |
 | Proposed follow-up | A human-reviewable next step, not an executed change | Review identity rules and source precedence |
 
@@ -37,14 +37,14 @@ not proof of a failed reconciliation job. The final answer must preserve those l
 - Helix MCP Knowledge `1.31.0` or later.
 - Helix MCP Gateway `0.9.0` or later.
 - BMC Helix CMDB `26.1` indexed in Knowledge.
-- An explicitly authorised synthetic `dev` target whose CMDB release has been confirmed
+- An explicitly authorized synthetic `dev` target whose CMDB release has been confirmed
   as compatible with the selected documentation version.
 - A private, installation-specific mapping for the permitted CMDB forms, database
   objects, fields, dataset selector, relationship direction, and lifecycle semantics.
 - An AR System administrator account if the SQL path is used.
 
 Gateway does not establish the target's CMDB documentation version. That alignment must
-come from authorised deployment information. If it cannot be established, the agent may
+come from authorized deployment information. If it cannot be established, the agent may
 report documentary and live evidence separately but must not present them as a
 version-matched comparison.
 
@@ -54,7 +54,7 @@ Another MCP client may display different prefixes while exposing the same tool n
 ## Reproducible prompt
 
 ```text
-Use both Helix MCP servers to investigate CMDB data quality in the authorised synthetic
+Use both Helix MCP servers to investigate CMDB data quality in the authorized synthetic
 DEV scope. Do not create, update, merge, or delete any Helix record.
 
 First use helix_knowledge. Verify that CMDB 26.1 is indexed. Retrieve only BMC official
@@ -64,7 +64,7 @@ and URL for every documentary statement. If evidence is insufficient, say so ins
 of using model memory.
 
 Then use helix. Confirm the explicit dev target and its readiness. Discover only the
-metadata needed for the installation's private, authorised computer-system and
+metadata needed for the installation's private, authorized computer-system and
 operating-system mapping. Do not invent physical object or field names. Prepare one
 read-only SQL plan, limited to 20 rows, following the private mapping. It should expose
 only presentation-safe values needed to assess duplicate system names, active operating-
@@ -221,7 +221,7 @@ establishes it. It must not be attributed to BMC by default.
 - [ ] Selected Knowledge sections are expanded and retain full provenance.
 - [ ] Retrieval can run lexical-only without loading semantic or reranker models.
 - [ ] The Gateway target is explicitly `dev`, synthetic, healthy, and version-aligned.
-- [ ] Every physical name comes from the authorised private mapping or live discovery.
+- [ ] Every physical name comes from the authorized private mapping or live discovery.
 - [ ] The planned SQL is SELECT-only, policy-allowed, aliased, and limited to 20 rows.
 - [ ] Planning and execution occur in separate turns with explicit approval between them.
 - [ ] The approved plan is retrieved and compared before its single execution.

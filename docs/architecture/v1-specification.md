@@ -19,6 +19,39 @@ Supported documentary scopes are:
 `all_relevant` combines those two scopes. It never expands a search to every
 registered project.
 
+## Component flow
+
+```mermaid
+flowchart LR
+    OFFICIAL["Selected official BMC documentation"] --> INGEST["Scoped synchronization, parsing and chunking"]
+    PROJECT["Effective project's documents"] --> INGEST
+    INGEST --> SQLITE["SQLite: canonical text, metadata, provenance and FTS5"]
+    SQLITE -.-> VECTOR["Optional BGE-M3 and local Qdrant vectors"]
+
+    AGENT["Autonomous Helix agent"] --> MCP["Knowledge MCP over stdio: nine tools"]
+    MCP --> QUERY["search_docs: project, product, version and source scope"]
+    QUERY --> LEXICAL["FTS5 / BM25 candidates"]
+    LEXICAL --> SQLITE
+    QUERY -.-> VECTOR
+    SQLITE --> VALIDATE["SQLite-authorized active chunks"]
+    VECTOR --> VALIDATE
+    VALIDATE --> RANK["Rank fusion and exact-term priority"]
+    RANK --> RESULT["Diversified evidence with provenance"]
+    RANK -.-> RERANK["Optional local reranker"]
+    RERANK --> RESULT
+    RESULT --> MCP
+    MCP --> AGENT
+```
+
+Dashed paths are opt-in components: the base installation searches FTS5 without
+Qdrant or a reranker. SQLite remains authoritative even when vector candidates
+are available; each returned chunk must still pass the effective project,
+product, version, document-type, and source-scope checks. The diagram follows
+`search_docs`; the other eight MCP tools expose sections, catalog and project
+context, and read-only status. Gateway is a separate MCP server: it supplies
+authorized live state and governed operations to the agent, never to this
+Knowledge retrieval pipeline.
+
 ## Persistence and retrieval
 
 - SQLite is the source of truth for documents, chunks, and metadata.

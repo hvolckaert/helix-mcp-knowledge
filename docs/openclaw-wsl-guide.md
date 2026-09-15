@@ -21,6 +21,8 @@ If OpenClaw is installed, also run `openclaw --version`.
 
 The configured official BMC source does not require BMC credentials. Never
 store GitHub tokens, OpenClaw credentials, or other secrets in the server YAML.
+See [resource planning](../README.md#resource-planning) for the base lexical
+profile and the separate estimates for OCR, semantic search, and reranking.
 
 ## 2. Clean installation of v1.31.5
 

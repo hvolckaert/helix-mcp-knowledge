@@ -95,3 +95,14 @@ backend scored every non-empty result set.
 Do not tune on this baseline indefinitely. Record difficult cases, make a change only
 for a stated hypothesis, then confirm it on a separate holdout set or with external
 tester evidence.
+
+## Resource-light fictional first-query case
+
+The repository-only
+[`first-query-fixture`](https://github.com/hvolckaert/helix-mcp-knowledge/tree/main/evaluation/first-query-fixture)
+supports a source-linked MCP result using one fictional project document. No BMC
+corpus, semantic model or reranker is required. A local rehearsal is not an
+external tester pass. The repository-only
+[written Knowledge case](https://github.com/hvolckaert/helix-mcp-knowledge/blob/main/docs/knowledge-source-grounded-answer-case.md)
+records both the supported answer and a deliberately unsupported query. The
+external tester pilot protocol is deferred.

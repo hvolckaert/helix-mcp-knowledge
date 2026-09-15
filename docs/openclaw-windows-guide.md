@@ -35,6 +35,8 @@ If OpenClaw is installed, also run `openclaw.cmd --version` and
 
 Use `openclaw.cmd`, not `openclaw.ps1`, so installation is independent of the
 PowerShell script-execution policy.
+See [resource planning](../README.md#resource-planning) for the base lexical
+profile and the separate estimates for OCR, semantic search, and reranking.
 
 ## 3. Clean installation of v1.31.5
 
