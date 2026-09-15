@@ -408,7 +408,8 @@ def _verify_release_metadata(expected_version: str) -> None:
         "scripts/install-windows.ps1": (
             rf"^\s*\[string\]\$Version = '{re.escape(expected_version)}',$"
         ),
-        "README.md": rf"^Version {re.escape(expected_version)} provides:$",
+        "README.md": rf"^Version {re.escape(expected_version)}\b",
+        "docs/release-status.md": rf"^Version {re.escape(expected_version)} provides:$",
         "docs/openclaw-wsl-guide.md": (
             rf"^## 2\. Clean installation of v{re.escape(expected_version)}$"
         ),
