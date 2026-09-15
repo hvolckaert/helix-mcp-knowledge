@@ -36,6 +36,9 @@ values, timestamps, identifiers, and paths remain locale-independent.
 
 ## Quality checks
 
+See the [development guide](docs/development.md) for checkout setup,
+optional local components, retrieval evaluation, and synthetic MCP acceptance.
+
 Run the complete local validation before opening a pull request:
 
 ```bash

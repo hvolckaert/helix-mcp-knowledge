@@ -6,7 +6,7 @@ environment. It uses only the lightweight lexical retrieval path; semantic searc
 reranking may remain disabled.
 
 The repository contains the scenario and expected metadata, but no copied BMC content.
-Each participant retrieves documentation that they are authorised to access into their
+Each participant retrieves documentation that they are authorized to access into their
 own local index.
 
 ## Outcome first
@@ -18,7 +18,7 @@ duplicates. Every supported statement must cite the retrieved document title, se
 CMDB version, source scope, and URL.
 
 The agent must not claim that it inspected a live CMDB. That would require Helix MCP
-Gateway and a separately authorised environment.
+Gateway and a separately authorized environment.
 
 ## Prerequisites
 
@@ -83,7 +83,7 @@ The response must contain `{"version": "26.1", "indexed": true}`.
 
 The evidence set should include both the reconciliation overview and the procedure for
 merging duplicate CIs from multiple sources. Record the returned ranks rather than
-hard-coding them into the answer; a later authorised corpus refresh may change ordering.
+hard-coding them into the answer; a later authorized corpus refresh may change ordering.
 
 The lightweight reference run should report `lexical=true`, `semantic=false`, and
 `reranked=false` in the match metadata.
@@ -122,7 +122,7 @@ workflow with Gateway after Knowledge has established the documentary expectatio
 
 ## Reference observation
 
-On 12 September 2026, the `1.31.0` lexical-only reference run over the author's authorised
+On 12 September 2026, the `1.31.0` lexical-only reference run over the author's authorized
 CMDB 26.1 index returned:
 
 1. `Reconciliation - BMC Helix Documentation`.
@@ -131,7 +131,7 @@ CMDB 26.1 index returned:
 
 The observation records titles and ranks only. It does not freeze or redistribute the
 underlying BMC text. Re-run the scenario after synchronization and preserve the current
-tool output only within the authorised local environment.
+tool output only within the authorized local environment.
 
 ## Recording outline
 
