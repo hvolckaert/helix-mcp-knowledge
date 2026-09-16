@@ -245,7 +245,8 @@ vectors and filter metadata only. See the
 ## Contact and support
 
 - Use [GitHub Issues](https://github.com/hvolckaert/helix-mcp-knowledge/issues)
-  for sanitized bug reports, feature proposals, and support requests.
+  and choose the matching bug, feedback, or support form for a sanitized public
+  report.
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a significant change.
 - Report security issues through the private process in [SECURITY.md](SECURITY.md).
 

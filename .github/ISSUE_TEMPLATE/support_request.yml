@@ -1,0 +1,73 @@
+name: Support request
+description: Ask for help installing, configuring, or operating Helix MCP Knowledge.
+title: "[Support]: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Public support requests must be safe to share. Describe the configuration shape, not its private values. Do not upload raw logs, configuration files, project documents, credentials, tokens, endpoints, hostnames, customer identifiers, or BMC documentation.
+        Security vulnerabilities belong in a private security advisory, not this form.
+  - type: input
+    id: version
+    attributes:
+      label: Helix MCP Knowledge version
+      placeholder: "For example: 1.31.8"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Native Windows
+        - WSL
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Support area
+      options:
+        - Installation or update
+        - Dashboard or local service
+        - Official documentation synchronization
+        - Private project configuration or ingestion
+        - MCP client registration
+        - Lexical search
+        - Optional OCR, semantic search, or reranking
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to achieve?
+    validations:
+      required: true
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What have you tried?
+      description: Link the guide or section followed and provide sanitized steps.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Current result
+      description: Include only the minimum sanitized error or unexpected behavior.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I checked the installation, operations, and troubleshooting documentation relevant to this request.
+          required: true
+        - label: I removed credentials, private content, customer data, endpoints, hostnames, absolute paths, and other sensitive details.
+          required: true

@@ -1,0 +1,81 @@
+name: Bug report
+description: Report a reproducible problem with Helix MCP Knowledge.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a problem. Use sanitized examples only. Do not paste credentials, tokens, private project text, BMC documentation, customer identifiers, endpoints, hostnames, or raw diagnostic bundles.
+        Report suspected security vulnerabilities through the private security-advisory link shown on the issue chooser instead of opening a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: Helix MCP Knowledge version
+      description: Provide the release number or commit SHA.
+      placeholder: "For example: 1.31.8"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Native Windows
+        - WSL
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - Published installer or managed release
+        - Checkout with uv
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Describe the failure and its impact. Replace private values with stable placeholders.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest repeatable sequence, including whether optional OCR, semantic search, or reranking was enabled.
+      placeholder: |
+        1. Start from ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Include only the minimum relevant error text. Remove paths, source content, tokens, endpoints, account names, and identifiers before submitting.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I reproduced the issue on a current supported release or identified the exact commit tested.
+          required: true
+        - label: I removed credentials, private content, customer data, endpoints, hostnames, absolute paths, and other sensitive details.
+          required: true
