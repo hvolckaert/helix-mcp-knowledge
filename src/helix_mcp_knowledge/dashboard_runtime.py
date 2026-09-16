@@ -24,6 +24,38 @@ DASHBOARD_MODE_ENV = "HELIX_KNOWLEDGE_DASHBOARD_MODE"
 DASHBOARD_MANAGER_ENV = "HELIX_KNOWLEDGE_DASHBOARD_MANAGER"
 
 
+def _process_is_running(pid: int) -> bool:
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return False
+        return True
+
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    kernel32.GetExitCodeProcess.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    process_query_limited_information = 0x1000
+    still_active = 259
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        return False
+    try:
+        exit_code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return False
+        return exit_code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def dashboard_workspace_id(workspace: Path) -> str:
     return hashlib.sha256(str(workspace.resolve()).encode("utf-8")).hexdigest()[:16]
 
@@ -611,33 +643,63 @@ class DashboardRuntimeManager:
             summary += "; supervisor log: " + " | ".join(lines[-12:])[-3000:]
         return summary
 
-    def _supervisor_alive(self) -> bool:
+    def _supervisor_processes(self) -> tuple[int, int | None] | None:
         state_path = self.workspace / "runtime/dashboard-supervisor.json"
         try:
             payload = json.loads(state_path.read_text(encoding="utf-8"))
             pid = int(payload["supervisor_pid"])
+            child_pid = int(payload["child_pid"]) if payload.get("child_pid") is not None else None
             heartbeat = float(payload["heartbeat_at_epoch"])
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
-            return False
+            return None
         if payload.get("workspace_id") != dashboard_workspace_id(self.workspace):
-            return False
+            return None
         if payload.get("port") != self.port or abs(time.time() - heartbeat) > 15.0:
-            return False
-        try:
-            os.kill(pid, 0)
-        except OSError:
-            return False
-        return True
+            return None
+        if not _process_is_running(pid):
+            return None
+        return pid, child_pid
+
+    def _supervisor_pid(self) -> int | None:
+        processes = self._supervisor_processes()
+        return processes[0] if processes is not None else None
+
+    def _supervisor_alive(self) -> bool:
+        return self._supervisor_processes() is not None
 
     def _stop_supervisor(self, *, timeout_seconds: float = 15.0) -> None:
-        if not self._supervisor_alive():
+        processes = self._supervisor_processes()
+        if processes is None:
             return
+        supervisor_pid, child_pid = processes
         stop_path = self.workspace / "runtime/dashboard-supervisor.stop"
         stop_path.write_text("stop\n", encoding="utf-8")
+        tree_terminated = False
+        if self.platform_name == "windows":
+            targets = [pid for pid in (child_pid, supervisor_pid) if pid is not None]
+            for target_pid in dict.fromkeys(targets):
+                try:
+                    completed = self.runner(
+                        ["taskkill.exe", "/PID", str(target_pid), "/T", "/F"],
+                        check=False,
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=15,
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+                    )
+                except (OSError, subprocess.TimeoutExpired):
+                    continue
+                else:
+                    tree_terminated = tree_terminated or completed.returncode == 0
         deadline = time.monotonic() + timeout_seconds
         while time.monotonic() < deadline:
-            if not self._supervisor_alive():
+            supervisor_stopped = not self._supervisor_alive()
+            listener_stopped = self.platform_name != "windows" or not self._port_is_open()
+            if listener_stopped and (supervisor_stopped or tree_terminated):
                 stop_path.unlink(missing_ok=True)
+                if self.platform_name == "windows":
+                    (self.workspace / "runtime/dashboard-supervisor.json").unlink(missing_ok=True)
                 return
             time.sleep(0.25)
         raise KnowledgeError("dashboard supervisor did not stop cleanly")

@@ -112,7 +112,7 @@ for the technical boundaries.
 
 ## Release status
 
-Version 1.31.7 runs lexical SQLite/FTS5 retrieval by default and makes OCR,
+Version 1.31.8 runs lexical SQLite/FTS5 retrieval by default and makes OCR,
 semantic search, and reranking opt-in. See the [detailed release status](docs/release-status.md)
 for the complete capability inventory.
 
