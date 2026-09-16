@@ -14,8 +14,9 @@ read-only gates. It does **not** mean `ready_to_plan`, authorize a write, confir
 release alignment, or prove that reconciliation is inactive.
 
 A later read-only follow-up verified the exact write-policy gate for the private form and
-field. It could not establish the live CMDB release, so the overall decision remains
-`ready_for_human_review` rather than `ready_to_plan`.
+field. A further administrative read established that the DEV AR System platform reports
+26.1.01, but this does not establish the separately reported CMDB component release. The
+overall decision therefore remains `ready_for_human_review` rather than `ready_to_plan`.
 
 No plan was created, no record was changed, and neither QA nor PROD was contacted.
 
@@ -42,7 +43,8 @@ qualification, identifiers or expected values.
 | Target readiness | DEV was enabled, non-production and healthy. | The authorized read path was available during the run. | Future availability or write readiness. |
 | Bounded live observation | Exactly one record matched; four equality, one empty-state and one presence check passed. | The private synthetic selector and expected current state agreed at that moment. | Broader data quality, inactive reconciliation or an unchanged future state. |
 | Effective write policy | One form and one field matched the private mapping; no write wildcard was active; human approval and a write reason were required. | The exact policy gate for this case was satisfied at follow-up time. | Approval of a plan, a future policy state or least-privilege read scope. |
-| Release verification | Standard version metadata paths were inspected through bounded reads, but none exposed an attributable current CMDB release. | The release gate was attempted without guessing. | That DEV runs CMDB 26.1. |
+| Platform version | The standard Server Information path reported AR System 26.1.01 through a bounded administrative read. | The DEV AR System platform version is attributable. | The separately reported CMDB component version. |
+| CMDB release verification | Standard application metadata and documented CMDB version-property paths were inspected through bounded reads, but none exposed an attributable current CMDB release. | The component gate was attempted without guessing or conflating products. | That DEV runs CMDB 26.1. |
 | Agent inference | The documentary, project and live read gates were mutually consistent. | Continuing to a human review is reasonable. | Authority to create a plan or modify Helix. |
 
 ## Documentary evidence
@@ -79,10 +81,20 @@ use write wildcards, and required both human approval and a write reason. The br
 read discovery scope remains wider than this single case requires and should be narrowed
 as a separate least-privilege improvement.
 
-The release gate did not close. The standard application version registry was empty;
-the CMDB information data path did not expose an attributable current CMDB release; and
+The platform portion of the release gate is now attributable: the standard Server
+Information path reported AR System 26.1.01 through BMC's documented
+[Server Information route](https://docs.helixops.ai/bin/Service-Management/Innovation-Suite/BMC-Helix-Innovation-Suite/is261/Troubleshooting/Collecting-diagnostics/Displaying-version-information/).
+BMC's product guidance presents the AR System and CMDB versions as separate diagnostic
+facts, so that observation was not relabelled as a CMDB version.
+
+The CMDB component portion did not close. The standard application version registry was
+empty; the CMDB information data path did not expose an attributable current release;
 the interface form containing the CMDB version display fields was not queryable through
-the API. No auxiliary or historical-looking value was treated as proof of CMDB 26.1.
+the API; and BMC's documented
+[CMDB version properties](https://docs.bmc.com/xwiki/bin/view/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac252/Developing/Integrating-your-services-with-external-products-by-using-the-CMDB-web-services-API/Modifying-the-web-services-configuration/)
+were not present with attributable values in the standard configuration form. No
+auxiliary, historical-looking or component-adjacent value was treated as proof of CMDB
+26.1.
 
 The follow-up used only form catalog, field catalog and bounded query operations. It did
 not create a plan or attempt a write.
@@ -118,6 +130,7 @@ as that approval.
 - [x] Output contained no private mapping token or raw row.
 - [x] A non-DEV mapping was rejected before connection.
 - [x] The effective write allowlist matched the private form and field exactly.
+- [x] DEV's AR System platform version is attributable as 26.1.01.
 - [ ] DEV's live CMDB release is attributable and aligned with 26.1.
 - [x] No plan, write, QA call or PROD call occurred.
 
