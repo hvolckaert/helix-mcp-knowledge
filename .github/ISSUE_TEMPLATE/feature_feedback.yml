@@ -1,0 +1,58 @@
+name: Feature request or feedback
+description: Suggest an improvement or provide structured product feedback.
+title: "[Feedback]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explain the problem or evaluation finding before proposing an implementation. Keep all examples fictional or sanitized; do not include private project material or copied BMC documentation.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Retrieval and provenance
+        - Official documentation catalog
+        - Project isolation and ingestion
+        - Dashboard and operations
+        - Installation and updates
+        - MCP client integration
+        - Documentation and examples
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or finding
+      description: What was difficult, missing, unclear, or unnecessarily costly?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the user-visible result without assuming a specific implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested approach
+      description: Optional implementation idea, trade-off, or alternative.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evaluation context
+      description: Optional sanitized workflow, corpus type, or resource constraint that motivated the feedback.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues and documentation for this request.
+          required: true
+        - label: This submission contains no credentials, private source text, customer data, endpoints, hostnames, or copied proprietary documentation.
+          required: true

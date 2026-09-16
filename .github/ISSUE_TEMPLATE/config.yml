@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://github.com/hvolckaert/helix-mcp-knowledge/security/advisories/new
+    about: Report a suspected vulnerability privately. Do not disclose it in a public issue.
+  - name: Documentation and usage guides
+    url: https://github.com/hvolckaert/helix-mcp-knowledge#documentation-paths
+    about: Review installation, operations, architecture, security, and development guidance before opening an issue.
