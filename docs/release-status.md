@@ -5,7 +5,7 @@ repository README can stay focused on first use and evaluation.
 
 ## Release status
 
-Version 1.31.6 provides:
+Version 1.31.7 provides:
 
 - validated YAML configuration and Pydantic domain models;
 - project registration and active-project resolution;
@@ -53,6 +53,8 @@ Version 1.31.6 provides:
   `HKCU` startup supervisor on native Windows, with no administrator rights;
 - automatic dashboard restart after a crash and a detached fallback when a user
   systemd manager is unavailable;
+- complete termination of the managed dashboard worker process tree on Windows,
+  preventing stale descendants from retaining the dashboard port during updates;
 - an update card that always reports the active runtime as `Updated to <version>`
   without exposing internal cleanup metrics;
 - shared maintenance coordination for on-demand OCR installation, synchronization,
