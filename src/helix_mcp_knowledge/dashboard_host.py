@@ -140,12 +140,42 @@ def _refresh_runtime_registration(
 
 
 def _terminate_child(child: subprocess.Popen[bytes]) -> None:
+    if _running_on_windows() and _terminate_windows_process_tree(child):
+        return
     child.terminate()
     try:
         child.wait(timeout=10)
     except subprocess.TimeoutExpired:
         child.kill()
         child.wait(timeout=5)
+
+
+def _running_on_windows() -> bool:
+    return os.name == "nt"
+
+
+def _terminate_windows_process_tree(child: subprocess.Popen[bytes]) -> bool:
+    """Terminate the dashboard wrapper and its worker descendants on Windows."""
+
+    try:
+        completed = subprocess.run(
+            ["taskkill.exe", "/PID", str(child.pid), "/T", "/F"],
+            check=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=15,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if completed.returncode != 0 and child.poll() is None:
+        return False
+    try:
+        child.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        return False
+    return True
 
 
 def _port_is_open(port: int) -> bool:
