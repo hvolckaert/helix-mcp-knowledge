@@ -132,4 +132,6 @@ explicit synthetic DEV target and one bounded form read.
 All installation-specific Gateway inputs remain in an external private JSON file. The
 probe can return `ready_for_human_review` or stop with a presentation-safe blocker, but
 it has no planning or write path. It is an acceptance harness for the authority chain,
-not approval for a later operation.
+not approval for a later operation. The
+[observed report](../docs/integrated-read-only-preflight-report.md) shows the public,
+sanitized ledger produced by one successful run and preserves the unresolved gates.
