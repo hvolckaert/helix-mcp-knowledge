@@ -20,6 +20,7 @@ from helix_mcp_knowledge.dashboard_runtime import (
     DASHBOARD_SERVICE_NAME,
     DASHBOARD_WINDOWS_RUN_NAME,
     DashboardRuntimeManager,
+    _process_is_running,
     dashboard_workspace_id,
 )
 from helix_mcp_knowledge.errors import KnowledgeError
@@ -465,6 +466,75 @@ def test_windows_process_tree_failure_falls_back_to_direct_termination(monkeypat
     assert calls == ["terminate", ("wait", 10)]
 
 
+def test_windows_manager_stops_the_external_supervisor_tree(tmp_path: Path, monkeypatch) -> None:
+    installation = _installation(tmp_path)
+    calls: list[tuple[list[str], dict[str, object]]] = []
+    stopped = False
+
+    def runner(command, **kwargs):
+        nonlocal stopped
+        calls.append((command, kwargs))
+        stopped = True
+        return subprocess.CompletedProcess(command, 0)
+
+    manager = DashboardRuntimeManager(
+        installation,
+        server_name="helix_knowledge",
+        openclaw_command="openclaw",
+        runner=runner,
+        platform_name="windows",
+        windows_registry=_FakeRegistry(),
+    )
+    state_path = manager.workspace / "runtime/dashboard-supervisor.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "supervisor_pid": 4321,
+                "child_pid": 9876,
+                "port": manager.port,
+                "workspace_id": dashboard_workspace_id(manager.workspace),
+                "heartbeat_at_epoch": time.time(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "helix_mcp_knowledge.dashboard_runtime._process_is_running",
+        lambda _pid: not stopped,
+    )
+    monkeypatch.setattr(manager, "_port_is_open", lambda: not stopped)
+
+    manager._stop_supervisor(timeout_seconds=1)
+
+    assert calls == [
+        (
+            ["taskkill.exe", "/PID", "9876", "/T", "/F"],
+            {
+                "check": False,
+                "stdin": subprocess.DEVNULL,
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "timeout": 15,
+                "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+            },
+        ),
+        (
+            ["taskkill.exe", "/PID", "4321", "/T", "/F"],
+            {
+                "check": False,
+                "stdin": subprocess.DEVNULL,
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "timeout": 15,
+                "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+            },
+        ),
+    ]
+    assert not state_path.exists()
+    assert not (manager.workspace / "runtime/dashboard-supervisor.stop").exists()
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows process trees require taskkill")
 def test_windows_process_tree_termination_closes_descendant_listener(tmp_path: Path) -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
@@ -553,6 +623,129 @@ process.wait()
             )
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows process inspection requires Win32")
+def test_windows_process_liveness_uses_the_native_process_handle() -> None:
+    process = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"],
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+    )
+    try:
+        assert _process_is_running(process.pid) is True
+        process.terminate()
+        process.wait(timeout=5)
+        assert _process_is_running(process.pid) is False
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows process trees require taskkill")
+def test_windows_manager_stop_closes_supervisor_descendant_listener(tmp_path: Path) -> None:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        port = reservation.getsockname()[1]
+
+    installation = _installation(tmp_path)
+    workspace = installation.config_path.parent.parent
+    _, server = versioned_runtime_paths(workspace, installation.active_version)
+    installation = activate_managed_installation(
+        workspace=workspace,
+        version=installation.active_version,
+        server_command=server,
+        config_path=installation.config_path,
+        client="standalone",
+        dashboard_port=port,
+    )
+    ready_path = tmp_path / "manager-grandchild-ready"
+    pid_path = tmp_path / "manager-grandchild-pid"
+    worker_script = tmp_path / "manager-worker.py"
+    worker_script.write_text(
+        """\
+import socket
+import sys
+import time
+from pathlib import Path
+
+port = int(sys.argv[1])
+ready_path = Path(sys.argv[2])
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", port))
+    listener.listen()
+    ready_path.write_text("ready", encoding="utf-8")
+    time.sleep(60)
+""",
+        encoding="utf-8",
+    )
+    supervisor_script = tmp_path / "manager-supervisor.py"
+    supervisor_script.write_text(
+        """\
+import subprocess
+import sys
+
+child = subprocess.Popen([sys.executable, sys.argv[1], sys.argv[2], sys.argv[3]])
+from pathlib import Path
+Path(sys.argv[4]).write_text(str(child.pid), encoding="utf-8")
+child.wait()
+""",
+        encoding="utf-8",
+    )
+    supervisor = subprocess.Popen(
+        [
+            sys.executable,
+            str(supervisor_script),
+            str(worker_script),
+            str(port),
+            str(ready_path),
+            str(pid_path),
+        ],
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+    )
+    try:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not ready_path.exists():
+            time.sleep(0.05)
+        assert ready_path.exists()
+        child_pid = int(pid_path.read_text(encoding="utf-8"))
+
+        state_path = workspace / "runtime/dashboard-supervisor.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "supervisor_pid": supervisor.pid,
+                    "child_pid": child_pid,
+                    "port": port,
+                    "workspace_id": dashboard_workspace_id(workspace),
+                    "heartbeat_at_epoch": time.time(),
+                }
+            ),
+            encoding="utf-8",
+        )
+        manager = DashboardRuntimeManager(
+            installation,
+            server_name="helix_knowledge",
+            openclaw_command="openclaw",
+            platform_name="windows",
+            windows_registry=_FakeRegistry(),
+        )
+
+        manager._stop_supervisor(timeout_seconds=10)
+
+        assert supervisor.poll() is not None
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connection:
+            connection.settimeout(0.25)
+            assert connection.connect_ex(("127.0.0.1", port)) != 0
+    finally:
+        if supervisor.poll() is None:
+            subprocess.run(
+                ["taskkill.exe", "/PID", str(supervisor.pid), "/T", "/F"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+
 def test_supervisor_identity_requires_a_fresh_matching_heartbeat(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -572,7 +765,10 @@ def test_supervisor_identity_requires_a_fresh_matching_heartbeat(
         "heartbeat_at_epoch": time.time(),
     }
     state_path.write_text(json.dumps(payload), encoding="utf-8")
-    monkeypatch.setattr("helix_mcp_knowledge.dashboard_runtime.os.kill", lambda _pid, _sig: None)
+    monkeypatch.setattr(
+        "helix_mcp_knowledge.dashboard_runtime._process_is_running",
+        lambda _pid: True,
+    )
 
     assert manager._supervisor_alive() is True
     payload["heartbeat_at_epoch"] = time.time() - 60
