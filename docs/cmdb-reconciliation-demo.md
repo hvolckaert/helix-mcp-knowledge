@@ -5,9 +5,9 @@ answer a CMDB question from versioned BMC evidence without accessing or changing
 environment. It uses only the lightweight lexical retrieval path; semantic search and
 reranking may remain disabled.
 
-The repository contains the scenario and expected metadata, but no copied BMC content.
-Each participant retrieves documentation that they are authorized to access into their
-own local index.
+The repository contains the scenario, a metadata-only probe and the expected metadata,
+but no copied BMC content. Each participant retrieves documentation that they are
+authorized to access into their own local index.
 
 ## Outcome first
 
@@ -20,9 +20,34 @@ CMDB version, source scope, and URL.
 The agent must not claim that it inspected a live CMDB. That would require Helix MCP
 Gateway and a separately authorized environment.
 
+## Reference answer
+
+BMC Helix CMDB first normalizes incoming CI data so that values can be compared
+consistently. Reconciliation then identifies records from different source datasets
+that represent the same CI and merges the selected attribute values, using the
+configured precedence, into the production dataset. This turns conflicting source
+representations into one governed production view; it does not prove that a particular
+job, rule or dataset is configured correctly in a live environment.
+
+Evidence:
+
+- [Reconciliation — BMC Helix Documentation](https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac261/Getting-started/Key-concepts/Reconciliation/),
+  CMDB 26.1, official scope.
+- [Merging duplicate CIs by reconciling data from multiple sources — BMC Helix Documentation](https://docs.helixops.ai/bin/Service-Management/IT-Service-Management/BMC-Helix-CMDB/ac261/Using/Merging-duplicate-CIs-by-reconciling-data-from-multiple-sources/),
+  CMDB 26.1, official scope.
+
+The answer is a paraphrase composed from the two expanded sections. The citations and
+scope come from the corresponding `search_docs` results, not from model memory.
+
+| Retrieval condition | Demonstrable outcome |
+| --- | --- |
+| No indexed CMDB 26.1 corpus | Abstain before search; no version-specific answer is supported. |
+| Authorized lexical CMDB 26.1 corpus | Both complementary sources are retrieved and expanded with provenance. |
+| Hybrid or reranked retrieval | Not executed on the resource-constrained local host; no quality improvement is claimed. |
+
 ## Prerequisites
 
-- Helix MCP Knowledge `1.31.0` or later.
+- Helix MCP Knowledge `1.31.8` or later.
 - BMC Helix CMDB `26.1` selected and fully synchronized.
 - The `helix_knowledge` MCP server connected to the agent.
 - Semantic retrieval and reranking disabled for the lightweight reference run.
@@ -33,6 +58,10 @@ Confirm readiness before recording:
 Call list_versions with product="cmdb". Continue only if version 26.1 reports
 indexed=true. Otherwise explain that the corpus is not ready and request synchronization.
 ```
+
+The logical evidence corpus is deliberately narrow: the authorized local CMDB 26.1
+index, restricted at query time to `source_scope=bmc_official`, `product=cmdb` and
+`version=26.1`. No BMC source text is stored in this repository.
 
 ## Reproducible agent prompt
 
@@ -107,6 +136,41 @@ The returned `document_id` must match the selected search result. The answer sho
 the expanded context, while its citation metadata comes from the corresponding
 `search_docs` result.
 
+## Evidence flow
+
+```mermaid
+flowchart LR
+    Q[Version-sensitive question] --> V{CMDB 26.1 indexed?}
+    V -- no --> A[Abstain: evidence unavailable]
+    V -- yes --> S[Search official CMDB 26.1]
+    S --> E[Expand the strongest sections]
+    E --> C[Verify title, version, scope, URL and retrieval mode]
+    C --> R[Compose supported answer]
+    C --> U[Label live state as unverified]
+```
+
+The flow makes the stop condition explicit: readiness is evidence too. An unindexed
+version cannot be repaired by model memory or by broadening the search silently.
+
+## Metadata-only acceptance probe
+
+The probe in
+[`evaluation/cmdb-evidence-case/cmdb_evidence_probe.py`](../evaluation/cmdb-evidence-case/cmdb_evidence_probe.py)
+executes the complete read-only sequence against an authorized local index. It checks
+that the two complementary documents occur in the top five, expands both sections and
+verifies their evidence roles. Its output omits source text, local paths, document IDs
+and chunk IDs.
+
+```bash
+python evaluation/cmdb-evidence-case/cmdb_evidence_probe.py \
+  --config /path/to/authorized/workspace/config/config.yaml
+```
+
+The reference configuration must keep semantic retrieval and reranking disabled. The
+probe also checks that fictional version `99.9` is absent and records the required
+decision as `abstain_before_search`; it does not issue an intentionally unsupported
+search.
+
 ## Evidence matrix
 
 | Statement to assess | Evidence role | Required citation metadata |
@@ -122,16 +186,18 @@ workflow with Gateway after Knowledge has established the documentary expectatio
 
 ## Reference observation
 
-On 12 September 2026, the `1.31.0` lexical-only reference run over the author's authorized
-CMDB 26.1 index returned:
+On 16 September 2026, a lexical-only reference run over the author's authorized CMDB
+26.1 index returned:
 
 1. `Reconciliation - BMC Helix Documentation`.
 2. `Merging duplicate CIs by reconciling data from multiple sources - BMC Helix
    Documentation`.
 
-The observation records titles and ranks only. It does not freeze or redistribute the
-underlying BMC text. Re-run the scenario after synchronization and preserve the current
-tool output only within the authorized local environment.
+The probe expanded both matching sections and verified the expected reconciliation,
+production-dataset, identification, merge and normalization signals without emitting
+their text. The observation records only presentation-safe metadata. It does not freeze
+or redistribute the underlying BMC text. Re-run the scenario after synchronization and
+preserve the current tool output only within the authorized local environment.
 
 ## Recording outline
 
@@ -150,7 +216,7 @@ tool output only within the authorized local environment.
 - [ ] CMDB 26.1 readiness is checked before retrieval.
 - [ ] `search_docs` is restricted to official CMDB 26.1 evidence.
 - [ ] The overview and duplicate-CI procedure both appear in the top five.
-- [ ] The selected section is expanded with adjacent context.
+- [ ] Both complementary sections are expanded with adjacent context.
 - [ ] Every material statement carries title, version, scope, and URL provenance.
 - [ ] Inference is visually separated from documentary evidence.
 - [ ] No claim about live CMDB state is presented as known.

@@ -106,3 +106,17 @@ external tester pass. The repository-only
 [written Knowledge case](https://github.com/hvolckaert/helix-mcp-knowledge/blob/main/docs/knowledge-source-grounded-answer-case.md)
 records both the supported answer and a deliberately unsupported query. The
 external tester pilot protocol is deferred.
+
+## CMDB 26.1 evidence case
+
+The metadata-only
+[`cmdb-evidence-case`](cmdb-evidence-case/cmdb_evidence_probe.py) validates the
+documentary path used by the
+[`CMDB reconciliation demo`](../docs/cmdb-reconciliation-demo.md). It requires an
+authorized local CMDB 26.1 index, restricts retrieval to official scope and runs with
+semantic retrieval and reranking disabled.
+
+The probe verifies that the reconciliation overview and duplicate-CI procedure occur in
+the top five, expands both sections and records an abstention for an unindexed fictional
+version. Its JSON output contains provenance metadata and boolean checks, but no BMC
+source text, local paths or runtime-generated identifiers.
