@@ -24,14 +24,14 @@ store GitHub tokens, OpenClaw credentials, or other secrets in the server YAML.
 See [resource planning](../README.md#resource-planning) for the base lexical
 profile and the separate estimates for OCR, semantic search, and reranking.
 
-## 2. Clean installation of v1.31.6
+## 2. Clean installation of v1.31.7
 
 ### Recommended one-command installation
 
 From a checkout of this version:
 
 ```bash
-./scripts/install-linux.sh --version 1.31.6
+./scripts/install-linux.sh --version 1.31.7
 ```
 
 By default, the installer selects no products. It creates a usable MCP server
@@ -47,7 +47,7 @@ only for unattended installations
 that must start with a predefined selection:
 
 ```bash
-./scripts/install-linux.sh --version 1.31.6 \
+./scripts/install-linux.sh --version 1.31.7 \
   --product cmdb=26.3 \
   --product discovery=current
 ```
@@ -67,7 +67,7 @@ interrupted, fix the cause and run it again with `--resume`.
 Define persistent paths in the Linux user profile:
 
 ```bash
-export HELIX_KNOWLEDGE_VERSION="1.31.6"
+export HELIX_KNOWLEDGE_VERSION="1.31.7"
 export HELIX_KNOWLEDGE_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/helix-mcp-knowledge"
 export HELIX_KNOWLEDGE_RUNTIME="$HELIX_KNOWLEDGE_HOME/runtime/$HELIX_KNOWLEDGE_VERSION"
 export HELIX_KNOWLEDGE_DOWNLOAD="$HELIX_KNOWLEDGE_HOME/downloads/$HELIX_KNOWLEDGE_VERSION"
@@ -143,7 +143,7 @@ it to change products, versions, synchronization frequency, and to create, remov
 or configure private projects and their document folders without editing YAML:
 
 ```bash
-~/.local/share/helix-mcp-knowledge/runtime/1.31.6/venv/bin/helix-mcp-knowledge \
+~/.local/share/helix-mcp-knowledge/runtime/1.31.7/venv/bin/helix-mcp-knowledge \
   --config ~/.local/share/helix-mcp-knowledge/config/config.yaml \
   dashboard
 ```
@@ -348,7 +348,7 @@ activate the latest stable release:
   update --openclaw-command /usr/bin/openclaw
 ```
 
-Use `--version 1.31.6` to pin a release. The updater installs or reuses the
+Use `--version 1.31.7` to pin a release. The updater installs or reuses the
 private, pinned GitHub CLI in the Knowledge workspace. It obtains metadata,
 assets, and attestation bundles from anonymous public endpoints, strips GitHub
 token, host, and repository overrides, verifies SHA-256 and provenance locally,
@@ -379,7 +379,7 @@ openclaw gateway restart
 openclaw mcp probe helix_knowledge --json
 ```
 
-Versions 1.0.x do not include `update`. Install v1.31.6 once in a parallel
+Versions 1.0.x do not include `update`. Install v1.31.7 once in a parallel
 runtime while retaining the same workspace; subsequent upgrades can use the
 integrated updater.
 
