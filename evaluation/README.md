@@ -120,3 +120,16 @@ The probe verifies that the reconciliation overview and duplicate-CI procedure o
 the top five, expands both sections and records an abstention for an unindexed fictional
 version. Its JSON output contains provenance metadata and boolean checks, but no BMC
 source text, local paths or runtime-generated identifiers.
+
+## Integrated Knowledge + Gateway preflight
+
+The
+[`integrated-read-only-preflight`](integrated-read-only-preflight/README.md) performs a
+single sanitized readiness sequence across both MCP servers. Knowledge verifies the
+official CMDB version and a separately scoped project procedure; Gateway checks only an
+explicit synthetic DEV target and one bounded form read.
+
+All installation-specific Gateway inputs remain in an external private JSON file. The
+probe can return `ready_for_human_review` or stop with a presentation-safe blocker, but
+it has no planning or write path. It is an acceptance harness for the authority chain,
+not approval for a later operation.
