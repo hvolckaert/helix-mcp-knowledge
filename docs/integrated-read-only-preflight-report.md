@@ -126,10 +126,10 @@ Failure of any gate requires `stop`. A future plan would be a new artifact with 
 digest and expiry and would require approval in a later turn. This report cannot serve
 as that approval.
 
-## Backlog acceptance
+## Demonstration acceptance
 
-The Week 5 integrated-agent case is complete as a governed read-only demonstration. The
-agent combined separately scoped official and project evidence with one bounded live DEV
+The integrated-agent case is complete as a governed read-only demonstration. The agent
+combined separately scoped official and project evidence with one bounded live DEV
 observation, preserved provenance, distinguished evidence from inference, and stopped
 before planning when one release fact could not be attributed. That constrained outcome
 is itself the demonstrated autonomy boundary; it is not a failed or hidden action.
@@ -152,7 +152,7 @@ recording is intentionally deferred and is not part of this report's acceptance 
 - [x] DEV's AR System platform version is attributable as 26.1.01.
 - [ ] DEV's live CMDB release is attributable and aligned with 26.1.
 - [x] The agent stopped before planning because the unresolved component gate was material.
-- [x] The Week 5 governed read-only acceptance criterion is satisfied.
+- [x] The governed read-only demonstration criterion is satisfied.
 - [x] No plan, write, QA call or PROD call occurred.
 
 This is a deterministic acceptance run of the authority chain, not a benchmark of a
