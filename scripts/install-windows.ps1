@@ -3,7 +3,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string]$Version = '1.31.5',
+    [string]$Version = '1.31.6',
 
     [string]$Repository = 'hvolckaert/helix-mcp-knowledge',
 
@@ -123,7 +123,10 @@ function Invoke-PublicGitHubJson {
     try {
         Save-TrustedGitHubAsset -Uri $Uri -Destination $temporary -MaxBytes 16MB `
             -Accept 'application/vnd.github+json'
-        return Get-Content -LiteralPath $temporary -Raw | ConvertFrom-Json
+        # Windows PowerShell 5.1 otherwise treats UTF-8 without a BOM as the
+        # active ANSI code page.  That can corrupt signed checkpoint text in an
+        # attestation bundle and make an otherwise valid signature unverifiable.
+        return Get-Content -LiteralPath $temporary -Raw -Encoding UTF8 | ConvertFrom-Json
     }
     finally {
         Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
@@ -189,7 +192,11 @@ function Save-TrustedGitHubAsset {
                     $currentUri = $location
                     continue
                 }
-                $response.EnsureSuccessStatusCode()
+                # PowerShell emits every uncaptured expression from a function.
+                # HttpResponseMessage.EnsureSuccessStatusCode() returns the response,
+                # so discard it explicitly; otherwise callers expecting JSON receive
+                # both the response object and the parsed payload on Windows PowerShell 5.1.
+                [void]$response.EnsureSuccessStatusCode()
                 $contentLength = $response.Content.Headers.ContentLength
                 if ($null -ne $contentLength -and [long]$contentLength -gt $MaxBytes) {
                     throw "GitHub asset is too large: $Destination"
@@ -269,7 +276,9 @@ function Invoke-ManagedGitHubCli {
         if ($Capture) {
             return Invoke-NativeCapture -FilePath $GhCommand -ArgumentList $ArgumentList
         }
-        Invoke-NativeCommand -FilePath $GhCommand -ArgumentList $ArgumentList
+        # Display command output without allowing it to become function output.
+        # Install-ManagedGitHubCli must return only the resolved executable path.
+        Invoke-NativeCommand -FilePath $GhCommand -ArgumentList $ArgumentList | Out-Host
     }
     finally {
         foreach ($key in $previous.Keys) {

@@ -47,6 +47,13 @@ def test_windows_installer_uses_public_release_endpoints_and_local_verification(
     assert "2ae2b350c227a618f2d8965b1900aeee13446ff42e17ef0bd5a0b6405c593cfb" in script
     assert "tools\\github-cli\\$Version" in script
     assert "$handler.AllowAutoRedirect = $false" in script
+    assert "[void]$response.EnsureSuccessStatusCode()" in script
+    assert "\n                $response.EnsureSuccessStatusCode()\n" not in script
+    managed_command = " ".join(
+        ("Invoke-NativeCommand -FilePath $GhCommand", "-ArgumentList $ArgumentList | Out-Host")
+    )
+    assert managed_command in script
+    assert "Get-Content -LiteralPath $temporary -Raw -Encoding UTF8 | ConvertFrom-Json" in script
     assert ".ContentLength.Value" not in script
     assert "release-assets.githubusercontent.com" in script
     assert "-MaxBytes 64MB" in script

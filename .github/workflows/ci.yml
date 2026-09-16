@@ -113,6 +113,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+            -File tests/windows/test_install_windows_helpers.ps1
           $openclaw = Join-Path $env:RUNNER_TEMP 'openclaw.cmd'
           Set-Content -LiteralPath $openclaw -Value '@exit /b 0' -Encoding ascii
           Set-Content -LiteralPath ([IO.Path]::ChangeExtension($openclaw, '.ps1')) -Value 'exit 0' -Encoding ascii

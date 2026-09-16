@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="1.31.5"
+VERSION="1.31.6"
 REPOSITORY="hvolckaert/helix-mcp-knowledge"
 INSTALL_ROOT="${XDG_DATA_HOME:-${HOME:?HOME is not defined}/.local/share}/helix-mcp-knowledge"
 WHEEL_PATH=""
@@ -27,7 +27,7 @@ Install helix-mcp-knowledge from a verified GitHub release.
 Usage: install-linux.sh [options]
 
 Options:
-  --version VERSION          Release version (default: 1.31.5)
+  --version VERSION          Release version (default: 1.31.6)
   --repository OWNER/REPO   GitHub repository
   --install-root PATH       Persistent workspace and runtime root
   --wheel PATH              Use a caller-provided wheel instead of downloading
