@@ -98,6 +98,9 @@ Knowledge path is valid for these workflows.
 - The [integrated CMDB data-quality case](integrated-cmdb-data-quality-case.md)
   is a read-only, synthetic DEV investigation method that keeps candidates and
   inferences separate from findings.
+- The [observed integrated read-only preflight](integrated-read-only-preflight-report.md)
+  records one sanitized Knowledge + Gateway execution, its evidence ledger and the
+  unresolved gates that prevent the read result from becoming write authority.
 - The [integrated controlled-update procedure](integrated-controlled-update-case.md)
   sets out prerequisites, approval comparison, verification, and abstention
   paths. The documented Knowledge evidence check and approved Gateway DEV
