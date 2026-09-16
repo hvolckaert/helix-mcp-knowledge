@@ -765,7 +765,10 @@ def test_supervisor_identity_requires_a_fresh_matching_heartbeat(
         "heartbeat_at_epoch": time.time(),
     }
     state_path.write_text(json.dumps(payload), encoding="utf-8")
-    monkeypatch.setattr("helix_mcp_knowledge.dashboard_runtime.os.kill", lambda _pid, _sig: None)
+    monkeypatch.setattr(
+        "helix_mcp_knowledge.dashboard_runtime._process_is_running",
+        lambda _pid: True,
+    )
 
     assert manager._supervisor_alive() is True
     payload["heartbeat_at_epoch"] = time.time() - 60
