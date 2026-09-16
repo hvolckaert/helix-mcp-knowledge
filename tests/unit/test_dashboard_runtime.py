@@ -4,13 +4,18 @@ import json
 import os
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from helix_mcp_knowledge.dashboard_host import supervise_dashboard
+from helix_mcp_knowledge.dashboard_host import (
+    _terminate_child,
+    _terminate_windows_process_tree,
+    supervise_dashboard,
+)
 from helix_mcp_knowledge.dashboard_runtime import (
     DASHBOARD_SERVICE_NAME,
     DASHBOARD_WINDOWS_RUN_NAME,
@@ -399,6 +404,153 @@ def test_supervisor_restarts_a_failed_dashboard_and_stops_after_clean_exit(
         }
     ]
     assert not (tmp_path / "workspace/runtime/dashboard-supervisor.json").exists()
+
+
+def test_windows_process_tree_termination_uses_taskkill(monkeypatch) -> None:
+    calls: list[tuple[list[str], dict[str, object]]] = []
+
+    class FakeChild:
+        pid = 4321
+
+        def poll(self):
+            return None
+
+        def wait(self, *, timeout: int):
+            assert timeout == 5
+            return 1
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr("helix_mcp_knowledge.dashboard_host.subprocess.run", fake_run)
+
+    assert _terminate_windows_process_tree(FakeChild()) is True
+    assert calls == [
+        (
+            ["taskkill.exe", "/PID", "4321", "/T", "/F"],
+            {
+                "check": False,
+                "stdin": subprocess.DEVNULL,
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "timeout": 15,
+                "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+            },
+        )
+    ]
+
+
+def test_windows_process_tree_failure_falls_back_to_direct_termination(monkeypatch) -> None:
+    calls: list[object] = []
+
+    class FakeChild:
+        pid = 4321
+
+        def terminate(self):
+            calls.append("terminate")
+
+        def wait(self, *, timeout: int):
+            calls.append(("wait", timeout))
+            return 0
+
+    monkeypatch.setattr("helix_mcp_knowledge.dashboard_host._running_on_windows", lambda: True)
+    monkeypatch.setattr(
+        "helix_mcp_knowledge.dashboard_host._terminate_windows_process_tree",
+        lambda _child: False,
+    )
+
+    _terminate_child(FakeChild())
+
+    assert calls == ["terminate", ("wait", 10)]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows process trees require taskkill")
+def test_windows_process_tree_termination_closes_descendant_listener(tmp_path: Path) -> None:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        port = reservation.getsockname()[1]
+
+    ready_path = tmp_path / "grandchild-ready"
+    pid_path = tmp_path / "grandchild-pid"
+    grandchild_script = tmp_path / "grandchild.py"
+    grandchild_script.write_text(
+        """\
+import socket
+import sys
+import time
+from pathlib import Path
+
+port = int(sys.argv[1])
+ready_path = Path(sys.argv[2])
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", port))
+    listener.listen()
+    ready_path.write_text("ready", encoding="utf-8")
+    time.sleep(60)
+""",
+        encoding="utf-8",
+    )
+    child_script = tmp_path / "child.py"
+    child_script.write_text(
+        """\
+import subprocess
+import sys
+from pathlib import Path
+
+process = subprocess.Popen([sys.executable, sys.argv[1], sys.argv[2], sys.argv[3]])
+Path(sys.argv[4]).write_text(str(process.pid), encoding="utf-8")
+process.wait()
+""",
+        encoding="utf-8",
+    )
+    child = subprocess.Popen(
+        [
+            sys.executable,
+            str(child_script),
+            str(grandchild_script),
+            str(port),
+            str(ready_path),
+            str(pid_path),
+        ],
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+    )
+    grandchild_pid: int | None = None
+    try:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not ready_path.exists():
+            time.sleep(0.05)
+        assert ready_path.exists()
+        grandchild_pid = int(pid_path.read_text(encoding="utf-8"))
+
+        _terminate_child(child)
+
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connection:
+                connection.settimeout(0.1)
+                if connection.connect_ex(("127.0.0.1", port)) != 0:
+                    break
+            time.sleep(0.05)
+        else:
+            pytest.fail("the descendant dashboard listener remained bound")
+        assert child.poll() is not None
+    finally:
+        if child.poll() is None:
+            subprocess.run(
+                ["taskkill.exe", "/PID", str(child.pid), "/T", "/F"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        if grandchild_pid is not None:
+            subprocess.run(
+                ["taskkill.exe", "/PID", str(grandchild_pid), "/F"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
 
 
 def test_supervisor_identity_requires_a_fresh_matching_heartbeat(
