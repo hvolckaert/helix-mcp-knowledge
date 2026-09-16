@@ -10,7 +10,7 @@ On first run it creates a per-user workspace containing a generic configuration,
 the supported official catalog, and the index directories.
 
 ```bash
-python -m pip install helix_mcp_knowledge-1.31.5-py3-none-any.whl
+python -m pip install helix_mcp_knowledge-1.31.6-py3-none-any.whl
 helix-mcp-knowledge install
 ```
 
@@ -76,13 +76,13 @@ public endpoints and verified locally.
 Windows:
 
 ```powershell
-.\scripts\install-windows.ps1 -Version 1.31.5
+.\scripts\install-windows.ps1 -Version 1.31.6
 ```
 
 WSL or Linux from a checkout:
 
 ```bash
-./scripts/install-linux.sh --version 1.31.5
+./scripts/install-linux.sh --version 1.31.6
 ```
 
 Both installers create a working MCP server with no products selected. Their
@@ -98,7 +98,7 @@ products for an unattended installation. Repeat the option to retain multiple
 versions:
 
 ```bash
-./scripts/install-linux.sh --version 1.31.5 \
+./scripts/install-linux.sh --version 1.31.6 \
   --product cmdb=26.3 \
   --product discovery=current
 ```

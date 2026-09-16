@@ -5,7 +5,7 @@ repository README can stay focused on first use and evaluation.
 
 ## Release status
 
-Version 1.31.5 provides:
+Version 1.31.6 provides:
 
 - validated YAML configuration and Pydantic domain models;
 - project registration and active-project resolution;
@@ -91,6 +91,7 @@ Version 1.31.5 provides:
   runtime, without enabling or indexing new versions automatically;
 - anonymous public discovery and download of runtime and catalog releases, with
   local attestation verification and no GitHub token forwarding;
+- Windows PowerShell 5.1-safe public installer output and UTF-8 attestation parsing;
 - scheduled BMC version detection with bounded navigation, temporary FTS5
   indexing, and review-only pull requests;
 - size-limited catalog probes with manual, authority-preserving redirect validation;
