@@ -13,6 +13,10 @@ evidence, explicit synthetic DEV target and one bounded live record passed the c
 read-only gates. It does **not** mean `ready_to_plan`, authorize a write, confirm target
 release alignment, or prove that reconciliation is inactive.
 
+A later read-only follow-up verified the exact write-policy gate for the private form and
+field. It could not establish the live CMDB release, so the overall decision remains
+`ready_for_human_review` rather than `ready_to_plan`.
+
 No plan was created, no record was changed, and neither QA nor PROD was contacted.
 
 ## Scope
@@ -37,6 +41,8 @@ qualification, identifiers or expected values.
 | Project procedure | The explicit validation project was registered; five project results were returned; the selected section and project provenance were verified privately. | A local synthetic procedure and selector exist. | Product correctness, Gateway policy or human approval. |
 | Target readiness | DEV was enabled, non-production and healthy. | The authorized read path was available during the run. | Future availability or write readiness. |
 | Bounded live observation | Exactly one record matched; four equality, one empty-state and one presence check passed. | The private synthetic selector and expected current state agreed at that moment. | Broader data quality, inactive reconciliation or an unchanged future state. |
+| Effective write policy | One form and one field matched the private mapping; no write wildcard was active; human approval and a write reason were required. | The exact policy gate for this case was satisfied at follow-up time. | Approval of a plan, a future policy state or least-privilege read scope. |
+| Release verification | Standard version metadata paths were inspected through bounded reads, but none exposed an attributable current CMDB release. | The release gate was attempted without guessing. | That DEV runs CMDB 26.1. |
 | Agent inference | The documentary, project and live read gates were mutually consistent. | Continuing to a human review is reasonable. | Authority to create a plan or modify Helix. |
 
 ## Documentary evidence
@@ -65,6 +71,22 @@ ledger retained only:
 These booleans are sufficient for the preflight decision without exposing the record,
 field names, values, qualification or raw response.
 
+## Read-only gate follow-up
+
+On 2026-09-16, the effective Gateway configuration was compared privately with the
+case mapping. The write allowlist contained exactly the mapped form and field, did not
+use write wildcards, and required both human approval and a write reason. The broader
+read discovery scope remains wider than this single case requires and should be narrowed
+as a separate least-privilege improvement.
+
+The release gate did not close. The standard application version registry was empty;
+the CMDB information data path did not expose an attributable current CMDB release; and
+the interface form containing the CMDB version display fields was not queryable through
+the API. No auxiliary or historical-looking value was treated as proof of CMDB 26.1.
+
+The follow-up used only form catalog, field catalog and bounded query operations. It did
+not create a plan or attempt a write.
+
 ## Interpretation and recommendation
 
 The observed state is consistent with the private synthetic procedure, so the agent may
@@ -74,10 +96,12 @@ requests a new planning step.
 Before any plan, a later run must independently confirm:
 
 1. the live target's CMDB release is aligned with the selected 26.1 documentation;
-2. the exact DEV form and field are admitted by current Gateway policy;
-3. the selected record still has the reviewed current state;
-4. no reconciliation can propagate the synthetic change outside the intended dataset;
-5. a human reviewer owns verification and reversal.
+2. the selected record still has the reviewed current state;
+3. no reconciliation can propagate the synthetic change outside the intended dataset;
+4. a human reviewer owns verification and reversal.
+
+The exact-policy gate has been verified, but it must still be rechecked if the mapping or
+Gateway configuration changes before a future plan.
 
 Failure of any gate requires `stop`. A future plan would be a new artifact with its own
 digest and expiry and would require approval in a later turn. This report cannot serve
@@ -93,6 +117,8 @@ as that approval.
 - [x] Exactly one bounded record passed all six private checks.
 - [x] Output contained no private mapping token or raw row.
 - [x] A non-DEV mapping was rejected before connection.
+- [x] The effective write allowlist matched the private form and field exactly.
+- [ ] DEV's live CMDB release is attributable and aligned with 26.1.
 - [x] No plan, write, QA call or PROD call occurred.
 
 This is a deterministic acceptance run of the authority chain, not a benchmark of a
