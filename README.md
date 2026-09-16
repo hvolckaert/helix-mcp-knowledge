@@ -95,6 +95,7 @@ keep semantic search and reranking disabled and evaluate lexical retrieval first
 - **Operate:** [dashboard, synchronization, projects, updates, and diagnostics](docs/operations.md).
 - **Understand the design:** [architecture and component flow](docs/architecture/v1-specification.md).
 - **Use both servers:** [agent architecture: Knowledge + Gateway](docs/agent-architecture.md).
+- **Present the product family:** [professional positioning kit](docs/professional-positioning-kit.md).
 - **Handle security:** [security policy and private vulnerability reporting](SECURITY.md).
 - **Develop:** [development setup and evaluation](docs/development.md) and
   [contribution rules](CONTRIBUTING.md).
