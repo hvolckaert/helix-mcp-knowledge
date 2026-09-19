@@ -741,7 +741,7 @@
       $('sync-button').title = canSynchronize ? '' : 'Select documentation or disable retention to clean local data';
       const updateOperation = dashboardState?.dashboard_update;
       const updating = ['pending', 'waiting_for_sync', 'running'].includes(updateOperation?.status);
-      const updateAvailable = dashboardState?.update?.status === 'available';
+      const updateAvailable = dashboardState?.update?.update_available === true;
       $('check-update-button').disabled = busy || updating;
       $('install-update-button').hidden = !updateAvailable && !updating;
       const managed = dashboardState?.client_integrations?.transactional_updates;
@@ -1247,7 +1247,10 @@
       const updateOperation = state.dashboard_update;
       const updating = ['pending', 'waiting_for_sync', 'running'].includes(updateOperation?.status);
       const retention = updateOperation?.storage_retention || state.storage_retention;
-      const updateStatus = updating ? updateOperation.status : updateOperation?.status === 'error' ? 'error' : state.update.status;
+      const releaseUpdateStatus = state.update.update_available === false && state.update.status === 'available'
+        ? 'current'
+        : state.update.status;
+      const updateStatus = updating ? updateOperation.status : updateOperation?.status === 'error' ? 'error' : releaseUpdateStatus;
       $('update-status').textContent = updateOperation?.status === 'waiting_for_sync' ? 'Update queued' : updating ? 'Updating' : statusText[updateStatus] || updateStatus;
       $('update-status').className = `metric-value status ${updateStatus}`;
       $('update-detail').textContent = updating
@@ -1260,7 +1263,7 @@
               ? `Updated to ${updateOperation.target_version} · automatic cleanup needs attention`
             : updateOperation?.status === 'success'
               ? `Updated to ${updateOperation.target_version}`
-          : state.update.status === 'current'
+          : releaseUpdateStatus === 'current'
             ? `Updated to ${state.server_version}`
           : state.update.latest_version
             ? `Latest release ${state.update.latest_version}`

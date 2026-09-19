@@ -101,6 +101,31 @@ def test_release_checker_force_refreshes_a_cached_current_release(app, tmp_path:
     assert len(runner.calls) == 2
 
 
+def test_release_checker_normalizes_cached_available_status_after_upgrade(
+    app, tmp_path: Path
+) -> None:
+    runner = ReleaseRunner(version="1.3.0")
+    clock = Clock(1_800_000_000.0)
+    checker = _checker(app, tmp_path, runner, clock)
+    store = AutomationStore(app.database)
+    store.update_state(
+        JOB_ID,
+        {
+            "status": "available",
+            "latest_version": "1.2.0",
+            "update_available": True,
+        },
+    )
+
+    result = checker.status()
+
+    assert result.status == "current"
+    assert result.current_version == "1.2.0"
+    assert result.latest_version == "1.2.0"
+    assert result.update_available is False
+    assert runner.calls == []
+
+
 def test_release_checker_retains_last_known_release_after_controlled_error(
     app, tmp_path: Path
 ) -> None:

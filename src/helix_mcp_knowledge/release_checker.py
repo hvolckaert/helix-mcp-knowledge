@@ -170,6 +170,8 @@ class ReleaseUpdateChecker:
         )
         raw_status = str(state.get("status", "unknown"))
         status = raw_status if raw_status in VALID_STATUSES else "unknown"
+        if available is not None and status in {"current", "available"}:
+            status = "available" if available else "current"
         return UpdateStatus(
             status=status,
             repository=self.settings.repository,

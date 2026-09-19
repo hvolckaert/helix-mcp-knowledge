@@ -5,7 +5,7 @@ repository README can stay focused on first use and evaluation.
 
 ## Release status
 
-Version 1.31.8 provides:
+Version 1.31.9 provides:
 
 - validated YAML configuration and Pydantic domain models;
 - project registration and active-project resolution;
@@ -58,6 +58,8 @@ Version 1.31.8 provides:
   the dashboard port during transactional updates;
 - an update card that always reports the active runtime as `Updated to <version>`
   without exposing internal cleanup metrics;
+- immediate reconciliation of cached release status after an update, preventing the
+  dashboard from offering to reinstall the already active version;
 - shared maintenance coordination for on-demand OCR installation, synchronization,
   configuration, cleanup, and runtime updates;
 - automatic retention of strictly recognized pre-manifest backups while preserving

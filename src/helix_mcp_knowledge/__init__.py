@@ -1,3 +1,3 @@
 """BMC Helix documentary knowledge MCP server."""
 
-__version__ = "1.31.8"
+__version__ = "1.31.9"
