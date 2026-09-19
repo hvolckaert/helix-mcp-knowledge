@@ -2162,6 +2162,10 @@ def test_dashboard_http_surface_and_csrf_protection(config_path: Path) -> None:
         assert "if (requireSavedConfiguration()) return;" in reranker_cancel
         assert "Install Helix Knowledge" in html
         assert "This page will reconnect" in html
+        assert "const updateAvailable = dashboardState?.update?.update_available === true;" in html
+        assert (
+            "state.update.update_available === false && state.update.status === 'available'" in html
+        )
         assert "Runtime connections" in html
         assert "Dashboard service" in html
         assert "Managed and running" in html

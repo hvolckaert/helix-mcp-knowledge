@@ -14,7 +14,7 @@ body:
     attributes:
       label: Helix MCP Knowledge version
       description: Provide the release number or commit SHA.
-      placeholder: "For example: 1.31.8"
+      placeholder: "For example: 1.31.9"
     validations:
       required: true
   - type: dropdown
