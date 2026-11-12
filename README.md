@@ -154,6 +154,14 @@ The dashboard is a local administration interface for source selection, project
 registration, synchronization, optional components, and update review. It is
 not an agent-callable MCP tool. See [operations](docs/operations.md#local-dashboard).
 
+![Helix MCP Knowledge dashboard with the public catalog and an empty local corpus](docs/assets/dashboard-overview.png)
+
+This public-safe first-run view was captured from an isolated empty workspace. It
+contains no selected products, indexed documents, private projects, local paths,
+credentials, or private endpoints. Administrators can review the official catalog,
+synchronization state, optional components, and pending configuration changes before
+anything is downloaded or saved.
+
 ## Server updates
 
 Managed updates are verified and activated transactionally; installation requires
